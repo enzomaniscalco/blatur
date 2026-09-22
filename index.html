@@ -143,6 +143,11 @@
   .vote{border:0;border-radius:99px;padding:3px 9px;font-size:12.5px;font-weight:600;margin-left:4px}
   .vote.g{background:var(--red);color:#fff}
   .vote.f{background:var(--paper);color:var(--green)}
+  .ffconfirm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:15px}
+  .ffconfirm b{color:#f0a3a8}
+  .ffconfirm .btn{padding:8px 16px;font-size:18px}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--paper);color:var(--ink);padding:10px 16px;border-radius:var(--radius);font-size:14.5px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:70;max-width:90vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .ffpick{margin:10px 0 0}
   .ffpick button{font-size:20px;padding:10px 6px}
   .gate{position:fixed;inset:0;z-index:50;background:var(--green);overflow:auto;padding:28px 18px 40px}
@@ -186,7 +191,7 @@
 </style>
 </head>
 <body>
-<div id="gate" class="gate" hidden></div>
+<div id="gate" class="gate"><h2>Blåtur-appen</h2><p>Laster …</p></div>
 <div id="ann" class="gate ann" hidden></div>
 <div class="app">
   <header>
@@ -364,15 +369,16 @@ const isOrganizer = () => QUIZ_MAKERS.includes(me);
 const activeMissions = () => MISSIONS.filter(m => !m.r || m.r === round);
 
 // Felles lagring: et Google-regneark bak et Apps Script-webapp (se oppsett). Personlig lagring: localStorage.
-const API = "https://script.google.com/macros/s/AKfycbxzL5oUHbBL2Rdai1OQNNhz1REw9TLKCCTipLDXY9PBZZE3WYHvMXLmkFnDXTRsWjmS/exec";                          // <-- lim inn Apps Script-URL-en her (slutter på /exec)
+const API = "https://script.google.com/macros/s/AKfycbxzL5oUHbBL2Rdai1OQNNhz1REw9TLKCCTipLDXY9PBZZE3WYHvMXLmkFnDXTRsWjmS/exec";                        // <-- lim inn Apps Script-URL-en her (slutter på /exec)
 let cache = {};                          // siste kjente felles verdier, key -> JSON-streng
-let online = true;
-async function syncAll(){
+let online = true, lastSync = 0;
+async function syncAll(force){
   if (!API) return false;
+  if (!force && Date.now() - lastSync < 1500) return true;   // nettopp hentet – ikke hent igjen
   try{
     const r = await fetch(API + '?t=' + Date.now(), {cache:'no-store'});
     const j = await r.json();
-    if (j && j.items){ cache = j.items; online = true; return true; }
+    if (j && j.items){ cache = j.items; online = true; lastSync = Date.now(); return true; }
   }catch(e){ console.error("sync", e); }
   online = false; return false;
 }
@@ -491,9 +497,8 @@ function maybeGate(){
     gateEl.querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', async ()=>{
       const i = +b.dataset.g;
       done[me]['g00'] = (i === m.a) ? true : {wrong:i};
-      const ok = await sset(KEY_DONE(me), done[me], true);
-      if(!ok){ alert("Fikk ikke lagret – prøv igjen."); delete done[me]['g00']; return; }
-      maybeGate();                                   // videre til låst skjerm – ingen fasit
+      maybeGate();                                   // videre til låst skjerm med en gang – ingen fasit
+      sset(KEY_DONE(me), done[me], true).then(ok => { if (!ok){ delete done[me]['g00']; toast("Fikk ikke lagret svaret – prøv igjen."); maybeGate(); } });
     }));
     return;
   }
@@ -725,7 +730,7 @@ function renderRound(){
 }
 async function endDay(){
   if (!isOrganizer() || !teams || roundOver()) return;
-  await syncAll();
+  await syncAll(true);
   const pa = points('A'), pb = points('B');
   const msg = `Avslutte ${ROUNDS[round]} med ${TEAMS.A} ${pa} – ${pb} ${TEAMS.B}?\n\nPoengene låses og ${round < 3 ? ROUNDS[round+1].toLowerCase() + 'srunden starter nå på 0 (' + PERIODS[round+1] + ')' : 'konkurransen avsluttes'}.`;
   if (!confirm(msg)) return;
@@ -765,37 +770,56 @@ function renderFF(spec){
     <div class="fftally">${tally}</div>
     ${last?`<div class="fflog">${last}</div>`:''}
     <div id="ff-pick" hidden class="who ffpick">${PEOPLE.filter(p=>p!==me).map(p=>`<button data-ff="${p}">${p}</button>`).join('')}</div>
+    <div id="ff-confirm" hidden class="ffconfirm"></div>
   </div>`;
 }
 async function reportFF(who){
   if (isSpec() || !me) return;
-  await syncAll();
   const now = Date.now();
   const t = new Date(now).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});
+  const entry = {id: now + '-' + who, who, by: me, t, ts: now};
+  const localDup = ff.find(e => e.who === who && e.ts && now - e.ts < 2*60*1000);
+  if (localDup){ toast(`${who} er allerede meldt av ${localDup.by} kl. ${localDup.t} – samme rop teller én gang.`); renderOpp(); return; }
+  ff = [...ff, entry]; renderOpp();                                  // vis med en gang
+  await syncAll(true);
   const cur = await sget(KEY_FF(), true) || [];
-  const dup = cur.find(e => e.who === who && e.ts && now - e.ts < 2*60*1000);
-  if (dup){ ff = cur; renderOpp(); alert(`${who} er allerede meldt av ${dup.by} kl. ${dup.t} – samme rop teller én gang.`); return; }
-  cur.push({id: now + '-' + who, who, by: me, t, ts: now});
+  const dup = cur.find(e => e.who === who && e.ts && now - e.ts < 2*60*1000 && e.id !== entry.id);
+  if (dup){ ff = cur; renderOpp(); toast(`${who} var allerede meldt av ${dup.by} kl. ${dup.t} – samme rop teller én gang.`); return; }
+  cur.push(entry);
   const ok = await sset(KEY_FF(), cur, true);
-  if(!ok){ alert("Fikk ikke lagret – prøv igjen."); return; }
+  if(!ok){ ff = ff.filter(e => e.id !== entry.id); renderOpp(); toast("Fikk ikke lagret – prøv igjen."); return; }
   ff = cur; renderOpp();
 }
 async function disputeFF(id){
   if (isSpec() || !me) return;
-  await syncAll();
+  const loc = ff.find(x => x.id === id); if (loc){ loc.d = true; loc.v = loc.v || {}; renderOpp(); }   // vis med en gang
+  await syncAll(true);
   const cur = await sget(KEY_FF(), true) || [];
-  const e = cur.find(x => x.id === id); if (!e || e.who !== me || e.d) return;
+  const e = cur.find(x => x.id === id); if (!e || e.who !== me || e.d){ ff = cur; renderOpp(); return; }
   e.d = true; e.v = {};
-  if (await sset(KEY_FF(), cur, true)){ ff = cur; renderOpp(); }
+  if (await sset(KEY_FF(), cur, true)){ ff = cur; } else toast("Fikk ikke lagret – prøv igjen.");
+  renderOpp();
 }
 async function voteFF(id, v){
   if (isSpec() || !me) return;
-  await syncAll();
+  const loc = ff.find(x => x.id === id); if (loc){ loc.v = loc.v || {}; loc.v[me] = v; renderOpp(); }   // vis med en gang
+  await syncAll(true);
   const cur = await sget(KEY_FF(), true) || [];
-  const e = cur.find(x => x.id === id); if (!e || !e.d || e.who === me) return;
-  e.v = e.v || {}; if (e.v[me]) return;
+  const e = cur.find(x => x.id === id); if (!e || !e.d || e.who === me){ ff = cur; renderOpp(); return; }
+  e.v = e.v || {}; if (e.v[me]){ ff = cur; renderOpp(); return; }
   e.v[me] = v;
-  if (await sset(KEY_FF(), cur, true)){ ff = cur; renderOpp(); }
+  if (await sset(KEY_FF(), cur, true)){ ff = cur; } else toast("Fikk ikke lagret – prøv igjen.");
+  renderOpp();
+}
+let toastT = null;
+function toast(msg){
+  let el = document.getElementById('toast');
+  if (!el){ el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(()=> el.classList.remove('show'), 3500);
+}
+function saveDone(person, undo){                    // lagrer i bakgrunnen; ruller tilbake ved feil
+  sset(KEY_DONE(person), done[person], true).then(ok => { if (!ok){ undo(); renderOpp(); toast("Fikk ikke lagret – prøv igjen."); } });
 }
 function renderQuiz(m, spec){
   const maker = !spec && QUIZ_MAKERS.includes(me);
@@ -822,18 +846,26 @@ function renderQuiz(m, spec){
 function bind(){
   const qsa = sel => [...oppRoot.querySelectorAll(sel)];
   const ffb = document.getElementById('ff-btn'); if (ffb) ffb.addEventListener('click', ()=>{ const pk = document.getElementById('ff-pick'); pk.hidden = !pk.hidden; });
-  oppRoot.querySelectorAll('[data-nein]').forEach(b => b.addEventListener('click', ()=>{ if (confirm("Bestride Fahnenflucht? De andre stemmer – flertallet avgjør.")) disputeFF(b.dataset.nein); }));
+  oppRoot.querySelectorAll('[data-nein]').forEach(b => b.addEventListener('click', ()=>{
+    const row = b.closest('.ffx'); if (!row) return;
+    row.innerHTML = `<span class="ffvote">Bestride? De andre stemmer – flertallet avgjør. <button class="vote g" data-nein-yes="${b.dataset.nein}">Ja, Nein!</button><button class="vote f" data-nein-no="1">Avbryt</button></span>`;
+    row.querySelector('[data-nein-yes]').addEventListener('click', ()=> disputeFF(b.dataset.nein));
+    row.querySelector('[data-nein-no]').addEventListener('click', ()=> renderOpp());
+  }));
   oppRoot.querySelectorAll('[data-vote]').forEach(b => b.addEventListener('click', ()=> voteFF(b.dataset.vote, b.dataset.v)));
   oppRoot.querySelectorAll('[data-ff]').forEach(b => b.addEventListener('click', ()=>{
-    if (confirm(`Melde Fahnenflucht på ${b.dataset.ff}?`)) reportFF(b.dataset.ff);
+    const who = b.dataset.ff, box = document.getElementById('ff-confirm'), pick = document.getElementById('ff-pick');
+    pick.hidden = true; box.hidden = false;
+    box.innerHTML = `<span>Melde <b>${esc(who)}</b> for Fahnenflucht?</span><button class="btn" data-ff-yes="${who}">Ja</button><button class="btn ghost" data-ff-no="1">Nei</button>`;
+    box.querySelector('[data-ff-yes]').addEventListener('click', ()=> reportFF(who));
+    box.querySelector('[data-ff-no]').addEventListener('click', ()=> { box.hidden = true; });
   }));
   oppRoot.querySelectorAll('.opt:not([disabled])').forEach(b => b.addEventListener('click', async ()=>{
     const id = b.dataset.q, i = +b.dataset.i, m = MISSIONS.find(x=>x.id===id);
     if (!m || isSpec() || QUIZ_MAKERS.includes(me) || done[me][id] !== undefined) return;
     done[me][id] = (i === m.a) ? true : {wrong:i};
-    const ok = await sset(KEY_DONE(me), done[me], true);
-    if(!ok){ alert("Fikk ikke lagret – prøv igjen."); delete done[me][id]; }
-    renderOpp();
+    renderOpp();                                                    // vis svaret med en gang
+    saveDone(me, () => { delete done[me][id]; });
   }));
   oppRoot.querySelectorAll('[data-me]').forEach(b => b.addEventListener('click', async ()=>{
     me = b.dataset.me; await sset(KEY_ME, me, false); renderOpp(); Object.keys(dayState).forEach(renderDay); maybeGate();
@@ -846,17 +878,18 @@ function bind(){
   const ed = document.getElementById('endday'); if (ed) ed.addEventListener('click', endDay);
   const ud = document.getElementById('undoday'); if (ud) ud.addEventListener('click', undoDay);
   qsa('.chk[data-m]').forEach(b => b.addEventListener('click', async ()=>{
-    const id = b.dataset.m; b.disabled = true;
+    const id = b.dataset.m;
     const mm = MISSIONS.find(x => x.id === id);
-    if (mm && mm.once && !done[me][id]){
-      await loadDone();                                   // fersk sjekk: har motstanderlaget allerede tatt den?
+    const was = done[me][id] === true;
+    if (was) delete done[me][id]; else done[me][id] = true;
+    renderOpp();                                                    // haken vises med en gang
+    if (mm && mm.once && !was){
+      await syncAll(true); await loadDone();                        // fersk sjekk i bakgrunnen: har motstanderlaget tatt den?
       const other = claimers(mm).find(p => teamOf(p) && teamOf(p) !== teamOf(me));
-      if (other){ alert(`${TEAMS[teamOf(other)]} har allerede registrert seieren (${other}). Bli enige – ${other} må fjerne sin før dere kan ta den.`); renderOpp(); return; }
+      if (other){ delete done[me][id]; renderOpp(); toast(`${TEAMS[teamOf(other)]} har allerede registrert seieren (${other}).`); return; }
+      done[me][id] = true;                                          // loadDone kan ha overskrevet – sett igjen
     }
-    done[me][id] = !done[me][id]; if(!done[me][id]) delete done[me][id];
-    const ok = await sset(KEY_DONE(me), done[me], true);
-    if(!ok){ alert("Fikk ikke lagret – prøv igjen."); done[me][id] = !done[me][id]; }
-    renderOpp();
+    saveDone(me, () => { if (was) done[me][id] = true; else delete done[me][id]; });
   }));
 }
 async function doDraw(){
@@ -871,7 +904,7 @@ async function doDraw(){
 }
 async function undoDay(){
   if (!isOrganizer() || !results.length) return;
-  await syncAll();
+  await syncAll(true);
   const last = results[results.length - 1];
   if (!confirm(`Angre oppgjøret for ${last.name}? Poengene fra ${last.name} åpnes igjen, og alt som er krysset av etterpå (${round <= 3 ? ROUNDS[round] : 'etter siste dag'}) slettes.`)) return;
   // slett data for runden som ble startet ved oppgjøret
@@ -901,7 +934,7 @@ async function resetAll(){
 }
 async function refreshScores(){
   const st = document.getElementById('st'); if (st) st.textContent = "Henter …";
-  await syncAll();
+  await syncAll(true);
   const r = (await sget(KEY_ROUND, true)) || 1;
   if (r !== round){ await loadOpp(); maybeGate(); maybeAnnounce(); return; }   // noen har avsluttet dagen – last alt på nytt
   results = (await sget(KEY_RESULTS, true)) || results;
@@ -913,7 +946,7 @@ async function refreshScores(){
 }
 setInterval(async ()=>{
   if (document.getElementById('pane-opp').classList.contains('active')) { refreshScores(); return; }
-  await syncAll();
+  await syncAll(true);
   const r = (await sget(KEY_ROUND, true)) || 1;                 // sjekk i bakgrunnen
   if (r !== round){ await loadOpp(); maybeGate(); maybeAnnounce(); }
 }, 20000);
