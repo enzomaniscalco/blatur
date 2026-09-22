@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f3b2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Blåtur">
+<title>Blåtur-appen</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --green:#0f3b2e;      /* flaskegrønn bakgrunn */
+    --green-2:#144a3a;
+    --paper:#f3e9d2;      /* ølbrikke-papir */
+    --paper-2:#e6d9bb;
+    --ink:#1b1a17;
+    --red:#b3202b;        /* Astra-rød */
+    --gold:#d9a441;
+    --muted:#6f6a5c;
+    --ok:#2e7d4f;
+    --radius:6px;
+    --font-d:"Barlow Condensed","Arial Narrow",Impact,sans-serif;
+    --font-b:"Barlow","Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--green);color:var(--paper);font-family:var(--font-b);font-size:16px;line-height:1.45}
+  button{font:inherit;cursor:pointer}
+  input,textarea{font:inherit}
+
+  .app{max-width:520px;margin:0 auto;padding:0 0 90px}
+
+  header{padding:22px 18px 10px}
+  header h1{font-family:var(--font-d);font-weight:800;font-size:44px;line-height:.92;margin:0;letter-spacing:.5px;text-transform:uppercase}
+  header h1 span{display:block;color:var(--gold);font-size:22px;font-weight:700;letter-spacing:1px;margin-top:6px}
+
+  nav.tabs{display:flex;gap:6px;padding:6px 14px 14px;position:sticky;top:0;background:var(--green);z-index:5}
+  nav.tabs button{flex:1;background:transparent;border:2px solid rgba(243,233,210,.35);color:var(--paper);border-radius:var(--radius);padding:8px 0;font-family:var(--font-d);font-size:20px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  nav.tabs button[aria-selected="true"]{background:var(--paper);color:var(--green);border-color:var(--paper)}
+  nav.tabs button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+
+  section.pane{display:none;padding:0 14px}
+  section.pane.active{display:block}
+
+  /* Dag-faner */
+  .day-intro{color:rgba(243,233,210,.75);margin:4px 2px 14px;font-size:15px}
+  .stop{display:grid;grid-template-columns:62px 1fr;gap:12px;padding:12px 0;border-top:1px solid rgba(243,233,210,.18)}
+  .stop:last-child{border-bottom:1px solid rgba(243,233,210,.18)}
+  .stop .t{font-family:var(--font-d);font-size:24px;font-weight:700;color:var(--gold);line-height:1;padding-top:2px}
+  .stop .n{font-family:var(--font-d);font-size:22px;font-weight:700;line-height:1.05}
+  .stop .a{font-size:13px;color:rgba(243,233,210,.65);margin-top:2px}
+  .stop .w{font-size:14.5px;margin-top:6px;color:rgba(243,233,210,.9)}
+  .stop .mv{display:inline-block;margin-top:6px;font-size:12.5px;padding:2px 8px;border-radius:99px;background:rgba(217,164,65,.18);color:var(--gold)}
+  .stop .del{background:none;border:0;color:rgba(243,233,210,.5);font-size:13px;padding:0;margin-top:6px;text-decoration:underline}
+
+  .empty{border:2px dashed rgba(243,233,210,.35);border-radius:var(--radius);padding:22px 16px;text-align:center;color:rgba(243,233,210,.8);margin:6px 0 14px}
+  .empty strong{display:block;font-family:var(--font-d);font-size:26px;font-weight:700;color:var(--paper);margin-bottom:4px}
+
+  details.add{margin-top:14px}
+  details.add summary{cursor:pointer;font-family:var(--font-d);font-size:20px;font-weight:700;color:var(--gold);list-style:none}
+  details.add summary::-webkit-details-marker{display:none}
+  .form{display:grid;gap:8px;margin-top:10px}
+  .form input,.form textarea{width:100%;border:0;border-radius:var(--radius);padding:10px 12px;background:var(--paper);color:var(--ink)}
+  .form .row{display:grid;grid-template-columns:90px 1fr;gap:8px}
+  .btn{background:var(--red);color:#fff;border:0;border-radius:var(--radius);padding:11px 16px;font-family:var(--font-d);font-size:20px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  .btn.ghost{background:transparent;border:2px solid rgba(243,233,210,.4);color:var(--paper)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+
+  .note{background:rgba(0,0,0,.18);border-radius:var(--radius);padding:12px 14px;font-size:14px;margin:14px 0}
+  .note b{color:var(--gold)}
+
+  /* Oppdrag */
+  .who{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 16px}
+  .who button{background:var(--paper);color:var(--green);border:0;border-radius:var(--radius);padding:14px 8px;font-family:var(--font-d);font-size:24px;font-weight:700}
+  .who button[aria-pressed="true"]{background:var(--gold);color:var(--ink)}
+  .spec-label{font-size:13px;color:rgba(243,233,210,.6);margin:-6px 2px 6px}
+  .who.spec{grid-template-columns:1fr 1fr 1fr;margin-top:0}
+  .who.spec button{background:transparent;border:2px solid rgba(243,233,210,.35);color:var(--paper);font-size:18px;padding:10px 4px}
+  span.chk{cursor:default}
+
+  .score{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:var(--paper);color:var(--ink);border-radius:var(--radius);padding:14px 10px;margin:6px 0 14px}
+  .score .team{text-align:center}
+  .score .team .nm{font-family:var(--font-d);font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+  .score .team .pt{font-family:var(--font-d);font-size:56px;font-weight:800;line-height:.9;margin:2px 0}
+  .score .team .mem{font-size:12.5px;color:var(--muted);line-height:1.3}
+  .score .team .pen{font-size:12px;color:var(--red);font-weight:600;margin-top:2px}
+  .score .vs{font-family:var(--font-d);font-size:20px;font-weight:700;color:var(--red);padding:0 6px}
+  .score .team.a .pt{color:#0a3d91}
+  .score .team.b .pt{color:#5a3a1e}
+  .score .team.lead .nm::after{content:" ●";color:var(--gold)}
+
+  .mine{font-size:14px;color:rgba(243,233,210,.75);margin:0 2px 10px}
+  .mine b{color:var(--gold)}
+
+  .mgroup{margin:18px 0 6px;font-family:var(--font-d);font-size:22px;font-weight:700;color:var(--gold);letter-spacing:.5px}
+  .m{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:start;padding:11px 0;border-top:1px solid rgba(243,233,210,.18)}
+  .m .chk{width:28px;height:28px;border:2px solid var(--paper);border-radius:4px;background:transparent;color:var(--green);font-weight:800;font-size:18px;display:grid;place-items:center;margin-top:1px}
+  .m.done .chk{background:var(--gold);border-color:var(--gold)}
+  .m .txt{font-size:15px}
+  .m.done .txt{color:rgba(243,233,210,.55);text-decoration:line-through}
+  .m .pts{font-family:var(--font-d);font-size:22px;font-weight:700;color:var(--gold);white-space:nowrap}
+  .m .by{font-size:12px;color:rgba(243,233,210,.55);margin-top:3px}
+  .m .chk:disabled{opacity:.35;cursor:not-allowed}
+  .opts{display:grid;gap:6px;margin-top:8px}
+  .opt{text-align:left;background:rgba(243,233,210,.08);border:2px solid rgba(243,233,210,.3);color:var(--paper);border-radius:var(--radius);padding:8px 10px;font-size:14px}
+  .opt:disabled{cursor:default;opacity:.55}
+  .opt.right{border-color:var(--gold);background:rgba(217,164,65,.22);opacity:1}
+  .opt.wrong{border-color:var(--red);background:rgba(179,32,43,.25);opacity:1}
+  .m.lost .txt{color:rgba(243,233,210,.55)}
+  .m.lost .chk{opacity:.6}
+  .m.miss .chk{border-color:var(--red);color:var(--red)}
+  .m.miss .txt{color:rgba(243,233,210,.55)}
+  .gdone{font-size:13.5px;color:rgba(243,233,210,.6);margin:14px 0 0;padding:6px 0;border-top:1px solid rgba(243,233,210,.18)}
+  .msub{font-family:var(--font-d);font-size:17px;font-weight:700;color:rgba(243,233,210,.85);margin:12px 0 2px;letter-spacing:.3px}
+  .gnote{font-size:13.5px;color:rgba(243,233,210,.7);margin:-4px 0 8px}
+  details.ans{margin-top:4px;font-size:13.5px}
+  details.ans summary{cursor:pointer;color:var(--gold);list-style:none;text-decoration:underline dotted}
+  details.ans summary::-webkit-details-marker{display:none}
+  details.ans[open] summary{margin-bottom:2px}
+
+  .ff{background:rgba(179,32,43,.16);border:2px solid rgba(179,32,43,.55);border-radius:var(--radius);padding:12px 14px;margin:0 0 14px}
+  .ffhead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .fftitle{font-family:var(--font-d);font-size:26px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#f0a3a8}
+  .ff .btn{padding:7px 14px 7px 10px;font-size:18px;display:inline-flex;align-items:center;gap:6px}
+  .ffstar{width:18px;height:18px;fill:currentColor}
+  .ffsay{font-size:12px;color:rgba(243,233,210,.6);line-height:1.2;margin-top:2px}
+  .ffhead{align-items:flex-start}
+  .ffrule{font-size:13.5px;color:rgba(243,233,210,.8);margin:6px 0 10px}
+  .fftally{display:flex;flex-wrap:wrap;gap:6px}
+  .fftag{background:var(--paper);color:var(--ink);border-radius:99px;padding:3px 10px;font-size:14px}
+  .fftag b{color:var(--red)}
+  .ffnone{font-size:13.5px;color:rgba(243,233,210,.6)}
+  .fflog{margin-top:8px;border-top:1px solid rgba(243,233,210,.18);padding-top:6px}
+  .ffrow{display:flex;justify-content:space-between;font-size:13px;padding:2px 0}
+  .ffby{color:rgba(243,233,210,.55)}
+  .ffrow{flex-wrap:wrap}
+  .ffrow.dis > span:first-child{text-decoration:line-through;opacity:.6}
+  .ffx{width:100%;margin-top:3px;font-size:12.5px;color:rgba(243,233,210,.8)}
+  .ffvote.out{color:rgba(243,233,210,.55)}
+  .nein{background:var(--paper);color:var(--red);border:0;border-radius:var(--radius);padding:3px 10px;font-family:var(--font-d);font-weight:800;font-size:15px}
+  .vote{border:0;border-radius:99px;padding:3px 9px;font-size:12.5px;font-weight:600;margin-left:4px}
+  .vote.g{background:var(--red);color:#fff}
+  .vote.f{background:var(--paper);color:var(--green)}
+  .ffpick{margin:10px 0 0}
+  .ffpick button{font-size:20px;padding:10px 6px}
+  .gate{position:fixed;inset:0;z-index:50;background:var(--green);overflow:auto;padding:28px 18px 40px}
+  .gate[hidden]{display:none}
+  .gate h2{font-family:var(--font-d);font-weight:800;font-size:40px;line-height:.95;text-transform:uppercase;margin:0 0 6px}
+  .gate p{color:rgba(243,233,210,.75);margin:0 0 18px;font-size:15px}
+  .gate .who{margin-bottom:12px}
+  .gate .pin{display:flex;gap:8px;max-width:320px}
+  .gate .pin .btn{white-space:nowrap}
+  .gate .pin input{flex:1;min-width:0;border:0;border-radius:var(--radius);padding:14px 12px;font-size:22px;letter-spacing:4px;background:var(--paper);color:var(--ink);text-align:center}
+  .pinmsg{color:#f0a3a8;min-height:1.4em}
+  .gate .guess{display:grid;gap:8px}
+  .gate .guess button{background:var(--paper);color:var(--green);border:0;border-radius:var(--radius);padding:16px 12px;font-family:var(--font-d);font-size:26px;font-weight:700;text-align:left}
+  .gate .guess button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+  .remind{background:var(--gold);color:var(--ink);border-radius:var(--radius);padding:10px 12px;margin:0 0 10px;font-weight:600;font-size:14.5px}
+  .round{display:flex;justify-content:space-between;align-items:center;background:rgba(217,164,65,.14);border:1px solid rgba(217,164,65,.5);border-radius:var(--radius);padding:8px 12px;margin:0 0 12px;font-size:14px}
+  .round b{color:var(--gold)}
+  .round .per{font-size:12px;color:rgba(243,233,210,.65)}
+  .round .dl{font-family:var(--font-d);font-size:18px;font-weight:700;color:var(--gold)}
+  .results{margin:0 0 12px}
+  .resrow{font-size:14px;padding:8px 0;border-top:1px solid rgba(243,233,210,.18)}
+  .resrow:last-child{border-bottom:1px solid rgba(243,233,210,.18)}
+  .resday{display:inline-block;min-width:66px;font-family:var(--font-d);font-size:18px;font-weight:700;color:var(--gold)}
+  .resline{font-size:13px;color:rgba(243,233,210,.7);margin-top:2px}
+  .resline b{color:var(--paper)}
+  .ann{background:var(--red);color:#fff;display:flex;flex-direction:column;justify-content:center;text-align:center;z-index:60}
+  .ann[hidden]{display:none}
+  .ann .kick{font-family:var(--font-d);font-size:20px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.85}
+  .ann h2{font-size:54px;margin:6px 0 4px;color:#fff}
+  .ann .sc{font-family:var(--font-d);font-size:40px;font-weight:800;margin:6px 0 18px}
+  .ann p{color:#fff;font-size:17px;margin:0 auto 12px;max-width:34ch}
+  .ann p b{color:var(--gold)}
+  .ann .nx{font-size:14px;opacity:.85;margin-top:6px}
+  .ann .btn{background:var(--paper);color:var(--red);margin:22px auto 0;padding:14px 28px;font-size:22px}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+  .status{font-size:12.5px;color:rgba(243,233,210,.55);margin:8px 2px 0}
+  .sr{position:absolute;left:-9999px}
+  @media (prefers-reduced-motion:no-preference){
+    .m .chk{transition:background .15s}
+  }
+</style>
+</head>
+<body>
+<div id="gate" class="gate" hidden></div>
+<div id="ann" class="gate ann" hidden></div>
+<div class="app">
+  <header>
+    <h1>Blåtur-appen<span>24.–27. september · Nagels Allee 8, 22769 Hamburg</span></h1>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" aria-selected="false" data-tab="tor">Tor</button>
+    <button role="tab" aria-selected="false" data-tab="fre">Fre</button>
+    <button role="tab" aria-selected="true" data-tab="lor">Lør</button>
+    <button role="tab" aria-selected="false" data-tab="son">Søn</button>
+    <button role="tab" aria-selected="false" data-tab="opp">Oppdrag</button>
+  </nav>
+
+  <section class="pane" id="pane-tor" data-day="tor"></section>
+  <section class="pane" id="pane-fre" data-day="fre"></section>
+  <section class="pane active" id="pane-lor" data-day="lor"></section>
+  <section class="pane" id="pane-son" data-day="son"></section>
+
+  <section class="pane" id="pane-opp">
+    <div id="opp-root"></div>
+  </section>
+</div>
+
+<script>
+/* ---------- Data ---------- */
+const PEOPLE = ["Enzo","Andreas","Carl","Christoffer","Simon","Steinn"];
+const SPECTATORS = ["Vetle","Jan Christian","Johan"]; // ser alt, kan ikke røre noe
+const isSpec = () => SPECTATORS.includes(me);
+const QUIZ_MAKERS = ["Enzo","Andreas"]; // laget quizen – kan ikke svare
+const UNLOCK_PIN = "4262874";              // deles ut av arrangørene når destinasjonen avsløres
+const KEY_UNLOCK = "hh26:unlocked";     // personlig
+const TEAMS = { A:"HSV", B:"St. Pauli" };
+
+const FIXED_DAYS = {
+  tor: { intro:"Torsdag 24. – resten av planen kommer fra ansvarlig. Legg til stopp under når den er klar.", stops:[
+      {t:"13:15",n:"Avreise Gardermoen",a:"DY1126",w:"",mv:""},
+      {t:"14:40",n:"Ankomst Hamburg",a:"",w:"",mv:""},
+      {t:"14:50",n:"Ta ut kontanter på flyplassen",a:"Bankautomat i ankomsthallen – Haspa, Sparkasse eller Volksbank. Unngå Euronet (gule/blå).",w:"Ta ut 200 € hver. Dekker det som må betales kontant: barene i Schanze torsdag, Holsten-Schwemme, Kixx, Silbersack og Hamburger Berg lørdag, samt reserve til Otto's, Dum99 og Ashirwad. Casino-innsats kommer i tillegg – ta ut det du selv vil spille for. Velg «belast i EUR» hvis automaten tilbyr NOK.",mv:""},
+      {t:"15:00",n:"S-Bahn til leiligheten",a:"S1 fra Airport → Altona",w:"Ca. 35 min. NB: toget deles i Ohlsdorf – sitt i den delen som kommer fra flyplassen (alle vogner fra Airport går riktig vei). Fra Altona: 12 min gange til Nagels Allee, eller S21/S31 ett stopp til Holstenstraße (3 min gange).",mv:"HVV-billett kjøpes i appen eller automat; flyplassen er i sone AB"},
+      {t:"15:40",n:"Øl til leiligheten – Edeka",a:"Stresemannstraße 161",w:"Stort utvalg, kaldt øl. 3 min gange fra Holstenstraße, 5 min fra leiligheten. Åpent til 21. Stengt søndag. Betaling: kort.",mv:"På vei fra S-Bahn"},
+      {t:"15:50",n:"Innsjekk leiligheten",a:"Nagels Allee 8",w:"Kast bagasjen, første øl, skift til middag.",mv:""},
+      {t:"16:30",n:"Wegbier til Bullerei",a:"Nagels Allee → Stresemannstraße → Schanzenstraße",w:"Gå med en øl i hånda – lovlig og helt vanlig i Hamburg. 20–25 min. Ta med flaskeåpner (kork, ikke skru). Backup hvis dere er sent ute: S21/S31 ett stopp Holstenstraße → Sternschanze, 10 min.",mv:"Til fots"},
+      {t:"17:00",n:"Bullerei",a:"Lagerstraße 34b, Schanze",w:"Bord booket i restaurantdelen. Overraskelsesmenyen på 3–4 retter er signaturen. Betaling: kort.",mv:"Rett overfor S/U Sternschanze"},
+      {t:"19:30",n:"Altes Mädchen",a:"Lagerstraße 28b",w:"Ratsherrn-ølhall, lange bord, 60+ øl og smaksbrett. Sitt og prat til oppgjøret kl. 22. Betaling: kort.",mv:"50 m fra Bullerei"},
+      {t:"22:30",n:"Casino Esplanade",a:"Stephansplatz 10",w:"Roulette, blackjack, poker. Legitimasjon og pent antrekk (skjorte). Betaling: kontanter til sjetonger.",mv:"Taxi, ca. 10 min"}
+  ] },
+  fre: { intro:"Fredag 25. – plan fra Andreas.", stops:[
+      {t:"12:00",n:"Lunsj – Dum99",a:"Friedensallee 13, Ottensen",w:"Kinesisk – dumplings og nudler. Tar ikke reservasjon – bare gå inn. Hold igjen på øl her – WoodCutter slipper ikke inn påvirkede gjester, uten refusjon.",mv:"Ca. 15 min gange fra Nagels Allee, eller S-Bahn til Altona"},
+      {t:"13:45",n:"WoodCutter Hamburg – ankomst",a:"Baurstraße 2, 22605 Hamburg",w:"Ankomst og klargjøring før økta.",mv:"Ca. 10 min taxi fra Ottensen"},
+      {t:"14:30",n:"Øksekasting – WoodCutter",a:"Baurstraße 2",w:"Ca. 60 min med instruktør. Konkurranse, økser og høy treffprosent? Dekket av kassa. Stedet er kontantfritt – drikke på kort. Ikke møt opp beruset: da slipper du ikke inn.",mv:""},
+      {t:"16:45",n:"Avreise mot minigolfen",a:"",w:"Litt slingringsmonn før neste aktivitet.",mv:"Ca. 20–25 min taxi/bil"},
+      {t:"17:30",n:"Minigolf – Schwarzlichtviertel",a:"Kieler Str. 571, 22525 Hamburg",w:"Minigolf i mørket – 18½ hull, ca. 90 min for 6. Dekket av kassa. Bar med drikke: debetkort, kontant i reserve.",mv:""},
+      {t:"19:45",n:"Middag – Ashirwad",a:"Bahrenfelder Chaussee 25",w:"Bord booket. Indisk – curry, naan og store porsjoner. Betaling: hver for seg.",mv:"Ca. 10 min taxi fra Schwarzlichtviertel"},
+      {t:"21:30",n:"Karaoke – Thai Oase",a:"Große Freiheit 40",w:"Hamburgs karaoke-institusjon: åpen scene, tusenvis av låter, stappfullt og vennlig. Kom tidlig og meld inn låter med en gang – køen blir lang. Betaling: kontant. Alternativ med bedre lyd og billigere øl: Tawan Daeng, Hopfenstraße 34 (åpner 21).",mv:"Taxi fra Ashirwad, ca. 10 min"},
+      {t:"23:30",n:"Resten av kvelden – åpent",a:"",w:"Fellesskapet bestemmer. Dere står på Große Freiheit: Kaiserkeller og Große Freiheit 36 (konsert/club) rett ved, Hamburger Berg 200 m unna, Elbschlosskeller døgnåpen.",mv:""}
+  ] },
+  lor: {
+    intro:"Lørdag 26. – øl, kicker, middag og bule. Ca. 500 m gange totalt. Ta med kontanter.",
+    stops:[
+      {t:"10:30",n:"Brunsj – Otto's Lokstedt",a:"Rütersbarg 2, 22529 Hamburg",w:"Bord booket. Stullen, egg, pancakes, granola. Betaling: hver for seg, kort bør gå – ha litt kontant i tilfelle.",mv:"Taxi/Uber XL fra Nagels Allee, ca. 20 min"},
+      {t:"12:00",n:"Football Fun Package XXL",a:"Eintracht Lokstedt, Döhrntwiete 2, 22529 Hamburg",w:"12–14. Dekket av kassa, drikke inkludert. Ca. 25 min bil hjem etterpå.",mv:"3 min gange fra Otto's"},
+      {t:"14:30",n:"Leiligheten",a:"Nagels Allee 8, 22769 Hamburg",w:"Dusj og omkledning.",mv:""},
+      {t:"15:30",n:"Astra St. Pauli Brauerei",a:"Nobistor 16",w:"Enkel mat + hele Astra-utvalget på fat. Sitt ute på gårdsplassen. Betaling: kort.",mv:"Taxi, ca. 10 min"},
+      {t:"16:45",n:"Holsten-Schwemme",a:"Herrenweide 2a",w:"Sjømannskneipe, biljard og dart. Betaling: KONTANT.",mv:"200 m"},
+      {t:"18:00",n:"Kixx",a:"Nobistor 38",w:"Bordfotball, 18 bord. Vi er der 18:00–19:15. Dagsmedlemskap 5 € i døra + drikke. Betaling: kort bør gå, ha kontant i reserve.",mv:"250 m"},
+      {t:"19:30",n:"Hidden Kitchen",a:"Friedrichstraße 1",w:"Bord booket. Delingsretter, ribs, pulled beef. Betaling: kort.",mv:"600 m eller 3 min taxi"},
+      {t:"21:30",n:"Zum Silbersack",a:"Silbersackstraße 9",w:"Klassisk bule siden 1949. Astra i seidel. Betaling: KONTANT.",mv:"300 m"},
+      {t:"23:00",n:"Resten av kvelden – åpent",a:"",w:"Forslag: Große Freiheit (Kaiserkeller, Große Freiheit 36 – konsert/club) · Elbschlosskeller (Hamburger Berg 38, døgnåpen) · Sorgenbrecher (Hamburger Berg 23, rolig bule med Ratsherrn).",mv:""}
+    ]
+  },
+  son: {
+    intro:"Søndag 27. – hjemreise.",
+    stops:[
+      {t:"12:45",n:"S-Bahn til flyplassen",a:"Holstenstraße → Altona (S21/S31) → S1 Airport",w:"Ca. 45 min dør til dør. Sjekk at S1-toget er merket «Airport/Flughafen» – annenhver går til Poppenbüttel.",mv:"Gir ca. 1,5 time på flyplassen før avgang"},
+      {t:"15:10",n:"Avreise Hamburg",a:"DY1127",w:"",mv:""},
+      {t:"16:35",n:"Ankomst Gardermoen",a:"",w:"",mv:""}
+    ]
+  }
+};
+
+const MISSIONS = [
+  {g:"Hvor skal vi?",    id:"g00", r:1, p:20, t:"Hvor tror du vi skal?", o:["Aalborg","Praha","København","Kraków","Berlin","Hamburg","Gøteborg","Amsterdam"], a:5},
+  {g:"Quiz",            id:"q01", r:1, p:5, t:"Hva betyr «Reeperbahn» direkte oversatt?", o:["Taugata – der man lagde tau", "Ridegata", "Havnegata", "Rytterbanen"], a:0},
+  {g:"Quiz",            id:"q02", r:1, p:5, t:"Hvilket band spilte på Kaiserkeller på Reeperbahn på 60-tallet?", o:["The Rolling Stones", "The Beatles", "The Kinks", "The Who"], a:1},
+  {g:"Quiz",            id:"q03", r:1, p:5, t:"Hva heter Hamburgs to fotballag?", o:["HSV og Hansa Hamburg", "FC St. Pauli og Altona 93", "HSV og FC St. Pauli", "HSV og Werder Hamburg"], a:2},
+  {g:"Quiz",            id:"q04", r:1, p:5, t:"Hva er Hamburgs mest kjente gatematrett?", o:["Currywurst", "Labskaus", "Franzbrötchen", "Fischbrötchen"], a:3},
+  {g:"Quiz",            id:"q05", r:1, p:5, t:"Hva er Hamburgs kallenavn som by?", o:["Tor zur Welt (Gateway to the World)", "Perle des Nordens", "Venedig des Nordens", "Die Freie Stadt"], a:0},
+  {g:"Quiz",            id:"q06", r:1, p:5, t:"Hvor mange byer i verden har større havn enn Hamburg?", o:["0 – Hamburg er størst", "3", "7", "12"], a:1},
+  {g:"Quiz",            id:"q07", r:1, p:5, t:"Hva heter gaten der Beatles-monumentet står?", o:["Reeperbahn", "Hamburger Berg", "Große Freiheit", "Davidstraße"], a:2},
+  {g:"Quiz",            id:"q08", r:1, p:5, t:"Hvor mange innbyggere har Hamburg?", o:["Ca. 900 000", "Ca. 1,2 millioner", "Ca. 3,5 millioner", "Ca. 1,8 millioner"], a:3},
+  {g:"På pubben", sg:"Måter å bestille alkohol", id:"m02", p:20, t:"Bestill «just a shot» – og gjenta det helt til bartenderen gir deg en uspesifisert shot"},
+  {g:"På pubben", sg:"Måter å bestille alkohol", id:"o11", p:20, t:"Bestill en shot (hvilken som helst), ta den umiddelbart og si «Noch einen!» [nɔx ˈaɪnən] – hit me again"},
+  {g:"På pubben", sg:"Måter å bestille alkohol", id:"m01", p:10, t:"Bestill første øl på tysk – ingen engelsk"},
+  {g:"På pubben", sg:"Måter å bestille alkohol", id:"b03", p:10, t:"Bestill «the largest beer you have» – uten videre spesifisering"},
+  {g:"På pubben", sg:"Måter å bestille alkohol", id:"b01", p:10, t:"Bestill en drink utelukkende med kroppsspråk – ingen ord, ingen peking på menyen"},
+  {g:"På pubben", sg:"Måter å bestille alkohol", id:"s10", p:10, t:"Be bartenderen anbefale «the most Hamburg thing you have» – og bestill det uten å se hva det er"},
+  {g:"På pubben", sg:"Måter å bestille alkohol", id:"o09", p:15, t:"Bestill en drink til en fremmed og få den levert uten å røpe hvem den er fra"},
+  {g:"På pubben", sg:"Måter å bestille alkohol", id:"b05", p:50, t:"Lag en drink selv (be bartenderen om lov) og gi den et navn"},
+  {g:"På pubben", sg:"Måter å bestille alkohol", id:"o08", p:20, t:"Syng bestillingen din – hele veien til bartenderen har forstått"},
+  {g:"På pubben", sg:"Måter å bestille alkohol", id:"o10", p:10, t:"Bestill på rim – minst to linjer"},
+  {g:"På pubben", sg:"Måter å bestille alkohol", id:"b06", p:20, t:"Betal i baren ved å brette en seddel til papirfly og kaste den på bardisken – så bartenderen ser det"},
+  {g:"På pubben", sg:"Andre puboppdrag", id:"m21", p:15, t:"Kjøp en runde til alle (6 enheter) – uten å utgiftsføre det"},
+  {g:"På pubben", sg:"Andre puboppdrag", id:"m23", p:10, t:"Bestill en runde shots til alle"},
+  {g:"På pubben", sg:"Andre puboppdrag", id:"m03", p:30, t:"Vinn et parti biljard mot en stamgjest"},
+  {g:"På pubben", sg:"Andre puboppdrag", id:"m13", p:15, t:"Ta en Korn sammen med en stamgjest"},
+  {g:"På pubben", sg:"Andre puboppdrag", id:"m05", p:20, t:"Få en stamgjest til å fortelle en historie fra gamle Hamburg"},
+  {g:"På pubben", sg:"Andre puboppdrag", id:"s02", p:10, t:"Spør en bartender om de kan signere armen din «for samlingen»"},
+  {g:"På pubben", sg:"Andre puboppdrag", id:"b02", p:10, t:"Finn ut hva bartenderen heter uten å spørre direkte"},
+  {g:"På pubben", sg:"Andre puboppdrag", id:"m04", p:20, t:"Treff bullseye i dart (bevitnet av motstanderlaget)"},
+  {g:"På pubben", sg:"Andre puboppdrag", id:"b04", p:10, t:"Arm wrestling – beste av tre mot en vilkårlig fremmed"},
+  {g:"På pubben", sg:"Andre puboppdrag", id:"m14", p:25, t:"Lær og syng med på et vers av en tysk sang"},
+  {g:"På restaurant", id:"m09", p:10, t:"Bestill en rett uten å spørre hva den inneholder"},
+  {g:"På restaurant", id:"m10", p:20, t:"Få en fra kjøkkenet med på bilde"},
+  {g:"På restaurant", id:"m11", p:15, t:"Få servitøren til å velge hele bordets bestilling – og ikke klag"},
+  {g:"På restaurant", id:"m12", p:15, t:"Skål med et bord dere ikke kjenner – og få dem til å skåle tilbake"},
+  {g:"På restaurant", id:"r05", p:30, t:"Vink kelneren bort til bordet for å spørre hvor toalettet er – fordi du må bæsje"},
+  {g:"I bybildet", id:"m17", p:10, t:"Bruk «Moin», «Prost», «Genau» og «Feierabend» riktig i samtale med en tysker"},
+  {g:"I bybildet", id:"m18", p:5,  t:"Få en tysker til å svare «Moin» på ditt «Moin»"},
+  {g:"I bybildet", id:"m19", p:15, t:"Ha på deg noe St. Pauli-relatert kjøpt samme dag"},
+  {g:"I bybildet", id:"m20", p:20, t:"Få en ukjent til å ta bilde av hele gjengen – og få vedkommende med på bildet"},
+  {g:"I bybildet", id:"s01", p:10, t:"Overbevis en fremmed om at du er en kjent norsk fotballspiller og be om selfie"},
+  {g:"I bybildet", id:"s03", p:10, t:"Gå bort til et tilfeldig par og spør om de kan ta bilde av «oss to» – og still deg ved siden av den ene"},
+  {g:"I bybildet", id:"s04", p:10, t:"Ring en på det andre laget mens du later som du snakker tysk – de må svare på tysk"},
+  {g:"I bybildet", id:"s05", p:10, t:"Be en fremmed om å lære deg en dans – og gjennomfør den"},
+  {g:"I bybildet", id:"s06", p:10, t:"Gå inn i en butikk og spør etter «Norwegian brown cheese»"},
+  {g:"I bybildet", id:"s07", p:10, t:"Syng 10 sekunder høyt på Reeperbahn – full innsats"},
+  {g:"I bybildet", id:"s08", p:10, t:"Fortell en fremmed at du er journalist og intervju dem om «livet på Kiez»"},
+  {g:"I bybildet", id:"s09", p:10, t:"Finn noen med samme fornavn som én i laget ditt"},
+  {g:"I bybildet", id:"f02", p:5, t:"En fra laget gjør push-ups på gata mens de andre heier"},
+  {g:"I bybildet", id:"f03", p:5, t:"Foto foran Beatles-monumentet med Twist and Shout-positur"},
+  {g:"I bybildet", id:"f04", p:5, t:"Video av én som prøver å henge med i en samtale på tysk i minst 30 sekunder"},
+  {g:"I bybildet", id:"f05", p:5, t:"Finn en person med norsk flagg, norsk trøye eller Norge-tilknytning"},
+  {g:"I bybildet", id:"f06", p:5, t:"Foto av hele laget inne i en taxi/buss dere ikke skal reise med"},
+  {g:"I bybildet", id:"f07", p:5, t:"En fra laget får en fremmed til å rope «Heia Norge!»"},
+  {g:"På casinoet", id:"m15", p:20, t:"Vinn på første innsats på roulette"},
+  {g:"På casinoet", id:"m16", p:40, t:"Forlat casinoet i pluss"},
+  {g:"På casinoet", id:"c01", p:10, t:"Vinn en hånd blackjack"},
+  {g:"På casinoet", id:"c02", p:10, t:"Få croupieren til å ønske deg lykke til ved navn"},
+  {g:"På casinoet", id:"c03", p:50, t:"Cash ut over 1 000 € i sjetonger"},
+  {g:"Aktiviteter", sg:"Football Fun Package XXL", id:"k01", p:30, once:true, t:"Vinn boblefotball-kampen"},
+  {g:"Aktiviteter", sg:"Football Fun Package XXL", id:"k02", p:30, once:true, t:"Vinn beerpong-kampen"},
+  {g:"Aktiviteter", sg:"Football Fun Package XXL", id:"k03", p:30, once:true, t:"Vinn football darts"},
+  {g:"Aktiviteter", sg:"Øksekasting", id:"k04", p:30, once:true, t:"Vinn øksekastingen (lag mot lag)"},
+  {g:"Aktiviteter", sg:"Øksekasting", id:"k05", p:10, t:"Treff bullseye"},
+  {g:"Aktiviteter", sg:"Minigolf", id:"k06", p:30, once:true, t:"Vinn minigolfen (færrest slag totalt for laget)"},
+  {g:"Aktiviteter", sg:"Fussball (Kixx)", id:"m06", p:20, t:"Spill en kickerkamp mot en fremmed"},
+  {g:"Aktiviteter", sg:"Fussball (Kixx)", id:"m08", p:10, t:"Vinn en kickerkamp med minst 2 mål mot motstanderlaget"}
+];
+const GROUP_NOTES = {
+  "Hvor skal vi?":   "Svares før du får se programmet. 20 poeng for riktig svar.",
+  "Quiz":            "Kjøres samlet på Gardermoen mens vi venter på påstigning. Ett forsøk per person. Enzo og Andreas har laget den og kan ikke svare.",
+  "Aktiviteter":     "Lag-kampene: én på vinnerlaget krysser av, teller én gang per lag.",
+  "På pubben":       "Gjelder på alle barer. Minst én fra motstanderlaget må ha sett det.",
+  "På restaurant":   "Gjelder på alle måltider.",
+  "I bybildet":      "Foto og video leveres i gruppechatten.",
+  "På casinoet":     "Torsdag kveld på Esplanade."
+};
+
+/* ---------- Storage helpers ---------- */
+// Tre konkurranser: torsdag, fredag, lørdag. Alt (lag, avkryssinger, Fahnenflucht) lagres per runde.
+const ROUNDS = [null, "Torsdag", "Fredag", "Lørdag"];
+const PERIODS = [null, "ankomst → tor 22:00", "tor 22:00 → fre 22:00", "fre 22:00 → lør 22:00"];
+let round = 1, results = [];
+const KEY_ROUND = "hh26:round";
+const KEY_RESULTS = "hh26:results";
+const KEY_TEAMS = (r = round) => "hh26:teams:r" + r;
+const KEY_DAY = d => "hh26:day:" + d;
+const KEY_DONE = (p, r = round) => "hh26:done:r" + r + ":" + p.toLowerCase();
+const KEY_ME = "hh26:me";
+const KEY_FF = (r = round) => "hh26:ff:r" + r;   // delt logg: [{who, by, t, ts}]
+let ff = [];
+const roundOver = () => round > 3;
+const isOrganizer = () => QUIZ_MAKERS.includes(me);
+const activeMissions = () => MISSIONS.filter(m => !m.r || m.r === round);
+
+// Felles lagring: et Google-regneark bak et Apps Script-webapp (se oppsett). Personlig lagring: localStorage.
+const API = "https://script.google.com/macros/s/AKfycbxzL5oUHbBL2Rdai1OQNNhz1REw9TLKCCTipLDXY9PBZZE3WYHvMXLmkFnDXTRsWjmS/exec";                          // <-- lim inn Apps Script-URL-en her (slutter på /exec)
+let cache = {};                          // siste kjente felles verdier, key -> JSON-streng
+let online = true;
+async function syncAll(){
+  if (!API) return false;
+  try{
+    const r = await fetch(API + '?t=' + Date.now(), {cache:'no-store'});
+    const j = await r.json();
+    if (j && j.items){ cache = j.items; online = true; return true; }
+  }catch(e){ console.error("sync", e); }
+  online = false; return false;
+}
+async function sget(key, shared){
+  if (!shared){ try{ const v = localStorage.getItem(key); return v === null ? null : JSON.parse(v); }catch(e){ return null; } }
+  if (!(key in cache)) return null;
+  try{ return JSON.parse(cache[key]); }catch(e){ return null; }
+}
+async function sset(key, val, shared){
+  if (!shared){ try{ localStorage.setItem(key, JSON.stringify(val)); return true; }catch(e){ return false; } }
+  if (typeof me !== 'undefined' && SPECTATORS.includes(me)) return false; // tilskuere skriver aldri til felles lagring
+  if (!API) return false;
+  try{
+    const r = await fetch(API, {method:'POST', body: JSON.stringify({key, value: val})}); // text/plain → ingen preflight
+    const j = await r.json();
+    if (!j || !j.ok) return false;
+    cache[key] = JSON.stringify(val); online = true; return true;
+  }catch(e){ console.error("save", e); online = false; return false; }
+}
+
+/* ---------- Tabs ---------- */
+const tabs = document.querySelectorAll('nav.tabs button');
+tabs.forEach(b => b.addEventListener('click', () => {
+  tabs.forEach(x => x.setAttribute('aria-selected', x===b));
+  document.querySelectorAll('section.pane').forEach(p => p.classList.toggle('active', p.id === 'pane-'+b.dataset.tab));
+  if (b.dataset.tab === 'opp') refreshScores();
+}));
+
+/* ---------- Days ---------- */
+const dayState = {};
+async function loadDay(d){
+  const extra = await sget(KEY_DAY(d), true) || [];
+  dayState[d] = extra;
+  renderDay(d);
+}
+function renderDay(d){
+  const pane = document.getElementById('pane-'+d);
+  const fixed = FIXED_DAYS[d];
+  const stops = [...fixed.stops, ...dayState[d].map(s => ({...s, custom:true}))]
+    .sort((a,b)=>sortKey(a.t)-sortKey(b.t));
+  let html = `<p class="day-intro">${fixed.intro}</p>`;
+  if (!stops.length){
+    html += `<div class="empty"><strong>Ingenting her ennå</strong>Legg til stopp når planen er klar.</div>`;
+  } else {
+    html += stops.map((s,i)=>`
+      <div class="stop">
+        <div class="t">${esc(s.t)}</div>
+        <div>
+          <div class="n">${esc(s.n)}</div>
+          ${s.a?`<div class="a">${esc(s.a)}</div>`:''}
+          ${s.w?`<div class="w">${esc(s.w)}</div>`:''}
+          ${s.mv?`<span class="mv">${esc(s.mv)}</span>`:''}
+          ${s.custom && !isSpec() && isOrganizer()?`<div><button class="del" data-day="${d}" data-id="${s.id}">Fjern</button></div>`:''}
+        </div>
+      </div>`).join('');
+  }
+  if (isSpec() || !isOrganizer()){ pane.innerHTML = html; return; }   // bare arrangørene kan legge til/fjerne stopp
+  html += `
+    <details class="add">
+      <summary>+ Legg til stopp</summary>
+      <div class="form">
+        <div class="row"><input placeholder="Kl." data-f="t" maxlength="5"><input placeholder="Sted" data-f="n"></div>
+        <input placeholder="Adresse (valgfritt)" data-f="a">
+        <textarea placeholder="Hva skjer her?" data-f="w" rows="2"></textarea>
+        <input placeholder="Transport dit (valgfritt)" data-f="mv">
+        <button class="btn" data-add="${d}">Lagre stopp</button>
+      </div>
+    </details>
+    <p class="status">Stopp du legger til her ser alle. Bare Enzo og Andreas kan endre programmet.</p>`;
+  pane.innerHTML = html;
+
+  pane.querySelector('[data-add]').addEventListener('click', async e=>{
+    const f = {}; pane.querySelectorAll('[data-f]').forEach(el => f[el.dataset.f] = el.value.trim());
+    if(!f.n){ alert("Skriv inn et sted."); return; }
+    f.id = Date.now().toString(36);
+    dayState[d].push(f);
+    await sset(KEY_DAY(d), dayState[d], true);
+    renderDay(d);
+  });
+  pane.querySelectorAll('.del').forEach(b => b.addEventListener('click', async ()=>{
+    dayState[d] = dayState[d].filter(s => s.id !== b.dataset.id);
+    await sset(KEY_DAY(d), dayState[d], true);
+    renderDay(d);
+  }));
+}
+function sortKey(t){ // 05:00 counts as after midnight
+  const m = /^(\d{1,2}):?(\d{2})?/.exec(t||""); if(!m) return 9999;
+  let h = +m[1], mi = +(m[2]||0); if (h < 10) h += 24; return h*60+mi;
+}
+function esc(s){ return String(s||"").replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------- Missions ---------- */
+let me = null, teams = null, done = {}; // done[person] = {missionId:true}
+const oppRoot = document.getElementById('opp-root');
+
+const gateEl = document.getElementById('gate');
+function needsGuess(){ return round === 1 && me && !isSpec() && !QUIZ_MAKERS.includes(me) && done[me] && done[me]['g00'] === undefined; }
+function maybeGate(){
+  if (!me){
+    gateEl.innerHTML = `<h2>Blåtur-appen</h2><p>Hvem er du?</p>
+      <div class="who">${PEOPLE.map(p=>`<button data-gme="${p}">${p}</button>`).join('')}</div>
+      <div class="spec-label">Ikke med i år</div>
+      <div class="who spec">${SPECTATORS.map(p=>`<button data-gme="${p}">${p}</button>`).join('')}</div>`;
+    gateEl.hidden = false;
+    gateEl.querySelectorAll('[data-gme]').forEach(b => b.addEventListener('click', async ()=>{
+      me = b.dataset.gme; await sset(KEY_ME, me, false);
+      renderOpp(); Object.keys(dayState).forEach(renderDay); maybeGate();
+    }));
+    return;
+  }
+  if (needsGuess()){
+    const m = MISSIONS.find(x => x.id === 'g00');
+    gateEl.innerHTML = `<h2>Hei, ${esc(me)}.</h2><p>Før du får se programmet: <b>hvor tror du vi skal?</b> Ett forsøk. Riktig svar gir 20 poeng.</p>
+      <div class="guess">${m.o.map((t,i)=>`<button data-g="${i}">${esc(t)}</button>`).join('')}</div>`;
+    gateEl.hidden = false;
+    gateEl.querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', async ()=>{
+      const i = +b.dataset.g;
+      done[me]['g00'] = (i === m.a) ? true : {wrong:i};
+      const ok = await sset(KEY_DONE(me), done[me], true);
+      if(!ok){ alert("Fikk ikke lagret – prøv igjen."); delete done[me]['g00']; return; }
+      maybeGate();                                   // videre til låst skjerm – ingen fasit
+    }));
+    return;
+  }
+  needsUnlock().then(locked => {
+    if (!locked){ gateEl.hidden = true; return; }
+    gateEl.innerHTML = `<h2>Svar registrert.</h2><p>Appen er låst til destinasjonen avsløres. Skriv inn koden du får av Enzo eller Andreas.</p>
+      <div class="pin"><input type="text" inputmode="numeric" maxlength="8" placeholder="Kode" id="pin-in" autocomplete="off"><button class="btn" id="pin-ok">Lås opp</button></div>
+      <p id="pin-msg" class="pinmsg"></p>`;
+    gateEl.hidden = false;
+    const tryPin = async () => {
+      const v = document.getElementById('pin-in').value.trim();
+      if (v === UNLOCK_PIN){ await sset(KEY_UNLOCK, true, false); gateEl.hidden = true; renderOpp(); Object.keys(dayState).forEach(renderDay); }
+      else document.getElementById('pin-msg').textContent = 'Feil kode.';
+    };
+    document.getElementById('pin-ok').addEventListener('click', tryPin);
+    document.getElementById('pin-in').addEventListener('keydown', e => { if (e.key === 'Enter') tryPin(); });
+  });
+}
+async function needsUnlock(){
+  if (!me || isSpec() || QUIZ_MAKERS.includes(me)) return false;
+  if (round !== 1) return false;
+  return !(await sget(KEY_UNLOCK, false));
+}
+async function loadOpp(){
+  await syncAll();
+  round = (await sget(KEY_ROUND, true)) || 1;
+  results = (await sget(KEY_RESULTS, true)) || [];
+  teams = await sget(KEY_TEAMS(), true);
+  ff = await sget(KEY_FF(), true) || [];
+  await loadDone();
+  renderOpp();
+}
+async function loadDone(){
+  await syncAll();
+  const results = await Promise.all(PEOPLE.map(p => sget(KEY_DONE(p), true)));
+  PEOPLE.forEach((p,i) => done[p] = results[i] || {});
+}
+function teamOf(p){ if(!teams) return null; return teams.A.includes(p) ? 'A' : (teams.B.includes(p) ? 'B' : null); }
+const FF_PENALTY = 5;
+const FF_VOTERS_NEEDED = 3;                    // flertall blant de fem som kan stemme
+function ffStatus(e){                          // 'ok' | 'pending' | 'dismissed'
+  if (!e.d) return 'ok';
+  const v = Object.values(e.v || {});
+  const g = v.filter(x => x === 'g').length, f = v.filter(x => x === 'f').length;
+  if (g >= FF_VOTERS_NEEDED) return 'ok';
+  if (f >= FF_VOTERS_NEEDED) return 'dismissed';
+  if (g + f >= PEOPLE.length - 1) return g > f ? 'ok' : 'dismissed';   // alle har stemt – flertall, uavgjort frikjenner
+  return 'pending';
+}
+function ffCount(p){ return ff.filter(e => e.who === p && ffStatus(e) === 'ok').length; }
+function ffPenalty(team){ return teams[team].reduce((a,p) => a + ffCount(p)*FF_PENALTY, 0); }
+function points(team){
+  let s = 0;
+  for (const m of activeMissions()){
+    if (m.once){ if (teams[team].some(p => done[p] && done[p][m.id] === true)) s += m.p; continue; }
+    for (const p of teams[team]) if (done[p] && done[p][m.id] === true) s += m.p;
+  }
+  return s - ffPenalty(team);
+}
+function personPts(p){
+  let s = 0;
+  for (const m of activeMissions()) if (done[p] && done[p][m.id] === true) s += m.p;
+  return s - ffCount(p)*FF_PENALTY;
+}
+function lowestOf(names){ const pts = names.map(p => [p, personPts(p)]); const min = Math.min(...pts.map(x=>x[1])); return pts.filter(x=>x[1]===min).map(x=>x[0]); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function renderOpp(){
+  let html = '';
+  // 1. Hvem er du?
+  const spec = isSpec();
+  let meLine = 'Hvem er du?';
+  if (me && spec) meLine = `Du er <b>${esc(me)}</b> – tilskuer i år. Du ser alt, men kan ikke krysse av. <button class="del" id="chg-me">Bytt</button>`;
+  else if (me) meLine = `Du er <b>${esc(me)}</b>${teams && teamOf(me) ? ` – lag <b>${TEAMS[teamOf(me)]}</b>` : ''}. <button class="del" id="chg-me">Bytt</button>`;
+  html += `<div class="mine">${meLine}</div>`;
+  if (me && teams && !roundOver()) html += renderReminders();
+  if (me) html += renderRound();
+  if (!me){
+    html += `<div class="who">${PEOPLE.map(p=>`<button data-me="${p}">${p}</button>`).join('')}</div>
+             <div class="spec-label">Ikke med i år</div>
+             <div class="who spec">${SPECTATORS.map(p=>`<button data-me="${p}">${p}</button>`).join('')}</div>`;
+    oppRoot.innerHTML = html; bind(); return;
+  }
+  if (roundOver()){
+    html += `<div class="empty"><strong>Konkurransen er over</strong>Tre dager, tre oppgjør. Resultatene står over.</div>`;
+    if (!spec && isOrganizer()) html += `<div class="toolbar"><button class="btn ghost" id="undoday">Angre siste oppgjør (${results[results.length-1].name})</button><button class="btn ghost" id="reset">Nullstill alt</button></div>`;
+    oppRoot.innerHTML = html; bind(); return;
+  }
+  // 2. Lag
+  if (!teams){
+    html += (!spec && isOrganizer())
+      ? `<div class="empty"><strong>Lagene er ikke trukket</strong>Trekningen gjelder alle.</div>
+         <button class="btn" id="draw">Trekk lag</button>`
+      : `<div class="empty"><strong>Lagene er ikke trukket ennå</strong>Stillingen dukker opp her når lagene er trukket.</div>`;
+    html += `<div style="height:14px"></div>` + renderFF(spec);
+    oppRoot.innerHTML = html; bind(); return;
+  }
+  const pa = points('A'), pb = points('B');
+  html += `
+    <div class="score">
+      <div class="team a ${pa>pb?'lead':''}"><div class="nm">${TEAMS.A}</div><div class="pt">${pa}</div><div class="mem">${teams.A.join(', ')}</div>${ffPenalty('A')?`<div class="pen">−${ffPenalty('A')} Fahnenflucht</div>`:''}</div>
+      <div class="vs">mot</div>
+      <div class="team b ${pb>pa?'lead':''}"><div class="nm">${TEAMS.B}</div><div class="pt">${pb}</div><div class="mem">${teams.B.join(', ')}</div>${ffPenalty('B')?`<div class="pen">−${ffPenalty('B')} Fahnenflucht</div>`:''}</div>
+    </div>
+    ${renderFF(spec)}
+    <div class="note"><b>Regler:</b> hvert oppdrag kan krysses av <b>én gang per person</b>. <b>Motstanderlaget må ha sett det.</b> Oppgjør <b>kl. 22:00</b> hver dag, og neste runde starter umiddelbart – kvelden etter kl. 22 teller for neste dag.<br><b>Premie:</b> en flaske <b>champagne</b>. <b>Den på taperlaget med færrest poeng</b> prøver å bestille den – uansett hvor vi er. Selger de ikke champagne, blir det en <b>vanlig runde</b>. <b>Taperlaget betaler samlet.</b> Hver <b>Fahnenflucht</b> koster laget <b>${FF_PENALTY} poeng</b>.</div>`;
+  let g = '', sg = '';
+  const answerers = PEOPLE.filter(p => !QUIZ_MAKERS.includes(p));
+  const groupDone = grp => activeMissions().filter(m => m.g === grp && m.o).every(m => answerers.every(p => done[p] && done[p][m.id] !== undefined));
+  for (const m of activeMissions()){
+    if (m.o && groupDone(m.g)){                       // quiz/gjetting ferdig for alle – skjul spørsmålene
+      if (m.g !== g){ g = m.g; html += `<div class="gdone">${esc(m.g)} – gjennomført, poengene er lagt til.</div>`; }
+      continue;
+    }
+    if (m.g !== g){ g = m.g; sg = ''; html += `<div class="mgroup">${esc(g)}</div>${GROUP_NOTES[g]?`<div class="gnote">${esc(GROUP_NOTES[g])}</div>`:""}`; }
+    if (m.sg && m.sg !== sg){ sg = m.sg; html += `<div class="msub">${esc(sg)}</div>`; }
+    if (m.o){ html += renderQuiz(m, spec); continue; }
+    html += rowFor(m, spec);
+  }
+  html += footerFor(spec);
+  oppRoot.innerHTML = html;
+  bind();
+}
+function claimers(m){ return PEOPLE.filter(p => done[p] && done[p][m.id] === true); }
+function rowFor(m, spec){
+    if (m.once && !spec){
+      const cl = claimers(m);
+      const myTeam = teamOf(me);
+      const iClaimed = cl.includes(me);
+      const other = cl.find(p => teamOf(p) && teamOf(p) !== myTeam);
+      const mate = cl.find(p => p !== me && teamOf(p) === myTeam);
+      const locked = !!other || (!!mate && !iClaimed);
+      const note = other ? `Registrert av ${TEAMS[teamOf(other)]} (${other}) – bare ${other} kan fjerne den`
+                 : mate ? `Registrert av ${mate} for ${TEAMS[myTeam]}` : '';
+      const teamDone = iClaimed || !!mate;
+      return `<div class="m ${teamDone?'done':''} ${other?'lost':''}">
+        <button class="chk" data-m="${m.id}" ${locked?'disabled':''} aria-pressed="${iClaimed}" aria-label="${iClaimed?'Fjern':'Kryss av'}: ${esc(m.t)}">${cl.length?'✓':''}</button>
+        <div><div class="txt">${esc(m.t)}</div>${note?`<div class="by">${note}</div>`:''}</div>
+        <div class="pts">${m.p}</div>
+      </div>`;
+    }
+    if (spec){
+      const who = PEOPLE.filter(p => done[p] && done[p][m.id]);
+      return `<div class="m ${who.length?'done':''}">
+        <span class="chk" aria-hidden="true">${who.length?'✓':''}</span>
+        <div><div class="txt">${esc(m.t)}</div>${who.length?`<div class="by">Gjort av ${who.join(', ')}</div>`:''}</div>
+        <div class="pts">${m.p}</div>
+      </div>`;
+    }
+    const mine = !!done[me][m.id];
+    const others = PEOPLE.filter(p => p!==me && done[p] && done[p][m.id]);
+    return `<div class="m ${mine?'done':''}">
+      <button class="chk" data-m="${m.id}" aria-pressed="${mine}" aria-label="${mine?'Fjern':'Kryss av'}: ${esc(m.t)}">${mine?'✓':''}</button>
+      <div><div class="txt">${esc(m.t)}</div>${others.length?`<div class="by">Også gjort av ${others.join(', ')}</div>`:''}</div>
+      <div class="pts">${m.p}</div>
+    </div>`;
+}
+function footerFor(spec){
+  return spec
+    ? `<div class="toolbar"><button class="btn ghost" id="refresh">Oppdater stilling</button></div>
+       <p class="status" id="st">Stillingen hentes automatisk hvert 20. sekund.</p>`
+    : `<div class="toolbar">
+    <button class="btn ghost" id="refresh">Oppdater stilling</button>
+    ${isOrganizer()?`<button class="btn" id="endday">Annonser resultat for ${ROUNDS[round]}</button>
+    ${results.length?`<button class="btn ghost" id="undoday">Angre siste oppgjør (${results[results.length-1].name})</button>`:''}
+    <button class="btn ghost" id="redraw">Trekk lag på nytt</button>
+    <button class="btn ghost" id="reset">Nullstill alt</button>`:''}
+  </div>
+  <p class="status" id="st">Stillingen hentes automatisk hvert 20. sekund.</p>`;
+}
+const KEY_SEEN = "hh26:seenResults";   // personlig: hvor mange resultater denne enheten har fått vist
+const annEl = document.getElementById('ann');
+async function maybeAnnounce(){
+  if (!me || !results.length) return;
+  const seen = (await sget(KEY_SEEN, false)) || 0;
+  if (results.length <= seen) return;
+  const r = results[results.length - 1];
+  const tie = r.pa === r.pb;
+  const w = r.pa > r.pb ? 'A' : 'B', l = w === 'A' ? 'B' : 'A';
+  const mine = teamOfIn(r, me);
+  const head = tie ? 'Uavgjort' : `${TEAMS[w]} vant`;
+  const verdict = tie ? '' : (mine === w ? 'Dere vant – drikk gratis.' : (mine === l ? 'Dere tapte – frem med lommeboka.' : ''));
+  const prize = tie
+    ? 'Ingen spanderer i kveld.'
+    : `<b>${TEAMS[l]}</b> spanderer en flaske champagne på <b>${TEAMS[w]}</b>. ${ordText(r)} Finnes ikke champagne, blir det en vanlig runde.`;
+  const next = r.round === 1 ? 'Fredagsrunden starter NÅ på 0 og teller til fredag 22:00 – resten av kvelden er med. Samme lag.'
+             : r.round === 2 ? 'Lørdagsrunden starter NÅ og teller til lørdag 22:00. Trekk nye lag før dere går videre i kveld.'
+             : 'Det var siste oppgjør. Takk for kampen.';
+  annEl.innerHTML = `<div class="kick">Resultat ${r.name}</div><h2>${head}</h2>
+    <div class="sc">${TEAMS.A} ${r.pa} – ${r.pb} ${TEAMS.B}</div>
+    ${verdict?`<p><b>${verdict}</b></p>`:''}<p>${prize}</p><div class="nx">${next}</div>
+    <button class="btn" id="ann-ok">Skjønner</button>`;
+  annEl.hidden = false;
+  document.getElementById('ann-ok').addEventListener('click', async ()=>{ annEl.hidden = true; await sset(KEY_SEEN, results.length, false); });
+}
+function ordText(r){ const o = r.orderer || []; return o.length === 1 ? `<b>${esc(o[0])}</b> prøver å bestille (færrest poeng) – laget betaler.` : o.length > 1 ? `${o.join(' og ')} har likt – stein, saks, papir om hvem som prøver å bestille. Laget betaler.` : ''; }
+function teamOfIn(r, p){ return r.A.includes(p) ? 'A' : (r.B.includes(p) ? 'B' : null); }
+// Påminnelser som vises i appen når en aktivitet er over (kan ikke pushe varsler – vises ved åpning/oppdatering)
+const REMINDERS = [
+  {date:"2026-09-25", after:"15:45", ids:["k04","k05"], text:"Øksekastingen er ferdig – vinnerlaget registrerer under Aktiviteter."},
+  {date:"2026-09-25", after:"19:00", ids:["k06"],       text:"Minigolfen er ferdig – vinnerlaget registrerer under Aktiviteter."},
+  {date:"2026-09-26", after:"14:00", ids:["k01","k02","k03"], text:"Football Fun Package er ferdig – registrer boblefotball, beerpong og football darts."},
+  {date:"2026-09-26", after:"19:15", ids:["m06","m08"], text:"Kixx er ferdig – husk kickeroppdragene under Aktiviteter."}
+];
+function renderReminders(){
+  const now = new Date();
+  const today = now.toLocaleDateString('sv-SE');            // YYYY-MM-DD lokal tid
+  const hm = now.toTimeString().slice(0,5);
+  const due = REMINDERS.filter(r => r.date === today && hm >= r.after)
+    .filter(r => !r.ids.every(id => PEOPLE.some(p => done[p] && done[p][id] === true)));
+  if (!due.length) return '';
+  return due.map(r => `<div class="remind">${esc(r.text)}</div>`).join('');
+}
+function renderRound(){
+  let h = '';
+  if (results.length){
+    h += `<div class="results">` + results.map(r => {
+      const tie = r.pa === r.pb;
+      const w = r.pa > r.pb ? 'A' : 'B', l = w === 'A' ? 'B' : 'A';
+      const line = tie ? `Uavgjort – ingen spanderer.` : `<b>${TEAMS[w]}</b> vant. ${TEAMS[l]} spanderer champagne${(r.orderer||[]).length?` – ${r.orderer.join('/')} prøver å bestille`:''}.`;
+      return `<div class="resrow"><span class="resday">${r.name}</span> ${TEAMS.A} ${r.pa} – ${r.pb} ${TEAMS.B}<div class="resline">${line}</div></div>`;
+    }).join('') + `</div>`;
+  }
+  if (!roundOver()){
+    h += `<div class="round"><span>Konkurranse ${round} av 3 · <b>${ROUNDS[round]}</b><div class="per">${PERIODS[round]}</div></span><span class="dl">Frist 22:00</span></div>`;
+    if (round === 3 && !teams) h += `<div class="gnote" style="margin:-8px 0 12px">Nye lag for lørdag – trekk på nytt.</div>`;
+  }
+  return h;
+}
+async function endDay(){
+  if (!isOrganizer() || !teams || roundOver()) return;
+  await syncAll();
+  const pa = points('A'), pb = points('B');
+  const msg = `Avslutte ${ROUNDS[round]} med ${TEAMS.A} ${pa} – ${pb} ${TEAMS.B}?\n\nPoengene låses og ${round < 3 ? ROUNDS[round+1].toLowerCase() + 'srunden starter nå på 0 (' + PERIODS[round+1] + ')' : 'konkurransen avsluttes'}.`;
+  if (!confirm(msg)) return;
+  const res = (await sget(KEY_RESULTS, true)) || [];
+  const loser = pa === pb ? null : (pa > pb ? 'B' : 'A');
+  const orderer = loser ? lowestOf(teams[loser]) : [];
+  res.push({ round, name: ROUNDS[round], A: teams.A, B: teams.B, pa, pb, orderer });
+  if (!(await sset(KEY_RESULTS, res, true))){ alert("Fikk ikke lagret – prøv igjen."); return; }
+  const next = round + 1;
+  if (next === 2) await sset(KEY_TEAMS(2), teams, true);   // samme lag torsdag og fredag
+  // lørdag (3): ingen lag – må trekkes på nytt
+  await sset(KEY_ROUND, next, true);
+  await loadOpp(); maybeGate(); maybeAnnounce();
+}
+function renderFF(spec){
+  const counts = {}; PEOPLE.forEach(p => counts[p] = ffCount(p));
+  const ranked = PEOPLE.filter(p => counts[p] > 0).sort((a,b) => counts[b]-counts[a]);
+  const tally = ranked.length
+    ? ranked.map(p => `<span class="fftag">${esc(p)} <b>${counts[p]}</b></span>`).join('')
+    : `<span class="ffnone">Ingen tatt ennå.</span>`;
+  const last = ff.slice(-6).reverse().map(e => {
+    const st = ffStatus(e); const v = e.v || {};
+    const g = Object.values(v).filter(x=>x==='g').length, f = Object.values(v).filter(x=>x==='f').length;
+    let extra = '';
+    if (!e.d && !spec && e.who === me && e.id) extra = `<button class="nein" data-nein="${e.id}">Nein!</button>`;
+    else if (e.d && st === 'pending'){
+      const canVote = !spec && me !== e.who && !v[me];
+      extra = `<span class="ffvote">Bestridt · ${g} skyldig / ${f} frikjent${canVote?` <button class="vote g" data-vote="${e.id}" data-v="g">Skyldig</button><button class="vote f" data-vote="${e.id}" data-v="f">Frikjent</button>`:''}</span>`;
+    }
+    else if (e.d && st === 'dismissed') extra = `<span class="ffvote out">Frikjent ${g}–${f}</span>`;
+    else if (e.d && st === 'ok') extra = `<span class="ffvote">Opprettholdt ${g}–${f}</span>`;
+    return `<div class="ffrow ${st==='dismissed'?'dis':''}"><span>${esc(e.who)}</span><span class="ffby">meldt av ${esc(e.by)} · ${e.t}</span>${extra?`<div class="ffx">${extra}</div>`:''}</div>`;
+  }).join('');
+  return `<div class="ff">
+    <div class="ffhead"><div><span class="fftitle">Fahnenflucht</span><div class="ffsay">[ˈfaːnənˌflʊkt]</div></div>${spec?'':'<button class="btn" id="ff-btn"><svg class="ffstar" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.2 6.8.8-5 4.7 1.3 6.7L12 17.6 6 20.9l1.3-6.7-5-4.7 6.8-.8z"/></svg>Meld</button>'}</div>
+    <div class="ffrule">Mobil utenfor Blåtur-appen, Google Maps, Google Translate, transport, foto/video til oppdrag eller en samtale hjem? Rop «Fahnenflucht!» – han chugger en enhet etter eget valg, og laget hans mister 5 poeng. Uenig? Rop «Nein!» og trykk Nein – da stemmer alle som så det.</div>
+    <div class="fftally">${tally}</div>
+    ${last?`<div class="fflog">${last}</div>`:''}
+    <div id="ff-pick" hidden class="who ffpick">${PEOPLE.filter(p=>p!==me).map(p=>`<button data-ff="${p}">${p}</button>`).join('')}</div>
+  </div>`;
+}
+async function reportFF(who){
+  if (isSpec() || !me) return;
+  await syncAll();
+  const now = Date.now();
+  const t = new Date(now).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});
+  const cur = await sget(KEY_FF(), true) || [];
+  const dup = cur.find(e => e.who === who && e.ts && now - e.ts < 2*60*1000);
+  if (dup){ ff = cur; renderOpp(); alert(`${who} er allerede meldt av ${dup.by} kl. ${dup.t} – samme rop teller én gang.`); return; }
+  cur.push({id: now + '-' + who, who, by: me, t, ts: now});
+  const ok = await sset(KEY_FF(), cur, true);
+  if(!ok){ alert("Fikk ikke lagret – prøv igjen."); return; }
+  ff = cur; renderOpp();
+}
+async function disputeFF(id){
+  if (isSpec() || !me) return;
+  await syncAll();
+  const cur = await sget(KEY_FF(), true) || [];
+  const e = cur.find(x => x.id === id); if (!e || e.who !== me || e.d) return;
+  e.d = true; e.v = {};
+  if (await sset(KEY_FF(), cur, true)){ ff = cur; renderOpp(); }
+}
+async function voteFF(id, v){
+  if (isSpec() || !me) return;
+  await syncAll();
+  const cur = await sget(KEY_FF(), true) || [];
+  const e = cur.find(x => x.id === id); if (!e || !e.d || e.who === me) return;
+  e.v = e.v || {}; if (e.v[me]) return;
+  e.v[me] = v;
+  if (await sset(KEY_FF(), cur, true)){ ff = cur; renderOpp(); }
+}
+function renderQuiz(m, spec){
+  const maker = !spec && QUIZ_MAKERS.includes(me);
+  const st = spec ? undefined : done[me][m.id];              // true | {wrong:i} | undefined
+  const answered = st !== undefined || maker;
+  const right = PEOPLE.filter(p => done[p] && done[p][m.id] === true);
+  const wrong = PEOPLE.filter(p => done[p] && done[p][m.id] && done[p][m.id] !== true);
+  const opts = m.o.map((t,i)=>{
+    let cls = 'opt';
+    if (spec || answered){ if (i===m.a) cls += ' right'; else if (!spec && st && st.wrong===i) cls += ' wrong'; }
+    const dis = spec || answered ? 'disabled' : '';
+    return `<button class="${cls}" data-q="${m.id}" data-i="${i}" ${dis}>${esc(t)}</button>`;
+  }).join('');
+  const mark = st === true ? '✓' : (answered ? '✗' : '');
+  const by = spec
+    ? [right.length?`Riktig: ${right.join(', ')}`:'', wrong.length?`Feil: ${wrong.join(', ')}`:''].filter(Boolean).join(' · ')
+    : [maker?'Du laget quizen – ingen svar for deg':'', right.filter(p=>p!==me).length?`Riktig: ${right.filter(p=>p!==me).join(', ')}`:'', maker&&wrong.length?`Feil: ${wrong.join(', ')}`:''].filter(Boolean).join(' · ');
+  return `<div class="m ${st===true?'done':''} ${answered&&st!==true?'miss':''}">
+    <span class="chk" aria-hidden="true">${mark}</span>
+    <div><div class="txt">${esc(m.t)}</div><div class="opts">${opts}</div>${by?`<div class="by">${by}</div>`:''}</div>
+    <div class="pts">${m.p}</div>
+  </div>`;
+}
+function bind(){
+  const qsa = sel => [...oppRoot.querySelectorAll(sel)];
+  const ffb = document.getElementById('ff-btn'); if (ffb) ffb.addEventListener('click', ()=>{ const pk = document.getElementById('ff-pick'); pk.hidden = !pk.hidden; });
+  oppRoot.querySelectorAll('[data-nein]').forEach(b => b.addEventListener('click', ()=>{ if (confirm("Bestride Fahnenflucht? De andre stemmer – flertallet avgjør.")) disputeFF(b.dataset.nein); }));
+  oppRoot.querySelectorAll('[data-vote]').forEach(b => b.addEventListener('click', ()=> voteFF(b.dataset.vote, b.dataset.v)));
+  oppRoot.querySelectorAll('[data-ff]').forEach(b => b.addEventListener('click', ()=>{
+    if (confirm(`Melde Fahnenflucht på ${b.dataset.ff}?`)) reportFF(b.dataset.ff);
+  }));
+  oppRoot.querySelectorAll('.opt:not([disabled])').forEach(b => b.addEventListener('click', async ()=>{
+    const id = b.dataset.q, i = +b.dataset.i, m = MISSIONS.find(x=>x.id===id);
+    if (!m || isSpec() || QUIZ_MAKERS.includes(me) || done[me][id] !== undefined) return;
+    done[me][id] = (i === m.a) ? true : {wrong:i};
+    const ok = await sset(KEY_DONE(me), done[me], true);
+    if(!ok){ alert("Fikk ikke lagret – prøv igjen."); delete done[me][id]; }
+    renderOpp();
+  }));
+  oppRoot.querySelectorAll('[data-me]').forEach(b => b.addEventListener('click', async ()=>{
+    me = b.dataset.me; await sset(KEY_ME, me, false); renderOpp(); Object.keys(dayState).forEach(renderDay); maybeGate();
+  }));
+  const chg = document.getElementById('chg-me'); if (chg) chg.addEventListener('click', async ()=>{ me = null; await sset(KEY_ME, null, false); renderOpp(); Object.keys(dayState).forEach(renderDay); maybeGate(); });
+  const draw = document.getElementById('draw'); if (draw) draw.addEventListener('click', doDraw);
+  const redraw = document.getElementById('redraw'); if (redraw) redraw.addEventListener('click', ()=>{ if(confirm("Trekke lagene på nytt? Poengene beholdes per person, men flytter med.")) doDraw(); });
+  const rf = document.getElementById('refresh'); if (rf) rf.addEventListener('click', refreshScores);
+  const rs = document.getElementById('reset'); if (rs) rs.addEventListener('click', resetAll);
+  const ed = document.getElementById('endday'); if (ed) ed.addEventListener('click', endDay);
+  const ud = document.getElementById('undoday'); if (ud) ud.addEventListener('click', undoDay);
+  qsa('.chk[data-m]').forEach(b => b.addEventListener('click', async ()=>{
+    const id = b.dataset.m; b.disabled = true;
+    const mm = MISSIONS.find(x => x.id === id);
+    if (mm && mm.once && !done[me][id]){
+      await loadDone();                                   // fersk sjekk: har motstanderlaget allerede tatt den?
+      const other = claimers(mm).find(p => teamOf(p) && teamOf(p) !== teamOf(me));
+      if (other){ alert(`${TEAMS[teamOf(other)]} har allerede registrert seieren (${other}). Bli enige – ${other} må fjerne sin før dere kan ta den.`); renderOpp(); return; }
+    }
+    done[me][id] = !done[me][id]; if(!done[me][id]) delete done[me][id];
+    const ok = await sset(KEY_DONE(me), done[me], true);
+    if(!ok){ alert("Fikk ikke lagret – prøv igjen."); done[me][id] = !done[me][id]; }
+    renderOpp();
+  }));
+}
+async function doDraw(){
+  if (!isOrganizer()) return;
+  // Faste par som alltid splittes: Enzo/Andreas og Steinn/Simon. Carl og Christoffer trekkes fritt.
+  const SPLIT = [["Enzo","Andreas"],["Steinn","Simon"],["Carl","Christoffer"]];
+  const A = [], B = [];
+  for (const pair of SPLIT){ const [x,y] = shuffle([...pair]); A.push(x); B.push(y); }
+  if (Math.random() < 0.5) teams = { A:A.sort(), B:B.sort() }; else teams = { A:B.sort(), B:A.sort() };
+  await sset(KEY_TEAMS(), teams, true);
+  renderOpp();
+}
+async function undoDay(){
+  if (!isOrganizer() || !results.length) return;
+  await syncAll();
+  const last = results[results.length - 1];
+  if (!confirm(`Angre oppgjøret for ${last.name}? Poengene fra ${last.name} åpnes igjen, og alt som er krysset av etterpå (${round <= 3 ? ROUNDS[round] : 'etter siste dag'}) slettes.`)) return;
+  // slett data for runden som ble startet ved oppgjøret
+  if (round <= 3){
+    await sset(KEY_TEAMS(round), null, true);
+    await sset(KEY_FF(round), [], true);
+    await Promise.all(PEOPLE.map(p => sset(KEY_DONE(p, round), {}, true)));
+  }
+  const res = results.slice(0, -1);
+  await sset(KEY_RESULTS, res, true);
+  await sset(KEY_ROUND, last.round, true);
+  const seen = (await sget(KEY_SEEN, false)) || 0; await sset(KEY_SEEN, Math.min(seen, res.length), false);
+  await loadOpp(); maybeGate();
+}
+async function resetAll(){
+  if(!confirm("Nullstille alt? Alle tre dager, lag, avkryssinger, resultater og Fahnenflucht slettes. Dette kan ikke angres.")) return;
+  for (const r of [1,2,3]){
+    await sset(KEY_TEAMS(r), null, true);
+    await sset(KEY_FF(r), [], true);
+    await Promise.all(PEOPLE.map(p => sset(KEY_DONE(p, r), {}, true)));
+  }
+  await sset(KEY_RESULTS, [], true);
+  await sset(KEY_ROUND, 1, true);
+  await sset(KEY_SEEN, 0, false);
+  await sset(KEY_UNLOCK, false, false);
+  await loadOpp(); maybeGate();
+}
+async function refreshScores(){
+  const st = document.getElementById('st'); if (st) st.textContent = "Henter …";
+  await syncAll();
+  const r = (await sget(KEY_ROUND, true)) || 1;
+  if (r !== round){ await loadOpp(); maybeGate(); maybeAnnounce(); return; }   // noen har avsluttet dagen – last alt på nytt
+  results = (await sget(KEY_RESULTS, true)) || results;
+  teams = await sget(KEY_TEAMS(), true) || teams;
+  ff = await sget(KEY_FF(), true) || ff;
+  await loadDone();
+  renderOpp();
+  const st2 = document.getElementById('st'); if (st2) st2.textContent = online ? "Oppdatert " + new Date().toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}) : "Får ikke kontakt med lagringen – sjekk nett.";
+}
+setInterval(async ()=>{
+  if (document.getElementById('pane-opp').classList.contains('active')) { refreshScores(); return; }
+  await syncAll();
+  const r = (await sget(KEY_ROUND, true)) || 1;                 // sjekk i bakgrunnen
+  if (r !== round){ await loadOpp(); maybeGate(); maybeAnnounce(); }
+}, 20000);
+
+/* ---------- Init ---------- */
+(async ()=>{
+  if (!API){
+    document.getElementById('gate').hidden = false;
+    document.getElementById('gate').innerHTML = `<h2>Ikke koblet til</h2><p>Appen mangler adressen til regnearket. Lim inn Apps Script-URL-en i <code>API</code> øverst i koden og last opp på nytt.</p>`;
+    return;
+  }
+  me = await sget(KEY_ME, false);
+  await Promise.all(['tor','fre','lor','son'].map(loadDay));
+  await loadOpp();
+  maybeGate();
+  maybeAnnounce();
+})();
+</script>
+</body>
+</html>
