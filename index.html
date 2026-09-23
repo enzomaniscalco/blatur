@@ -388,7 +388,7 @@ const isOrganizer = () => QUIZ_MAKERS.includes(me);
 const activeMissions = () => MISSIONS.filter(m => !m.r || m.r === round);
 
 // Felles lagring: et Google-regneark bak et Apps Script-webapp (se oppsett). Personlig lagring: localStorage.
-const API = "";                          // <-- lim inn Apps Script-URL-en her (slutter på /exec)
+const API = "https://script.google.com/macros/s/AKfycbxzL5oUHbBL2Rdai1OQNNhz1REw9TLKCCTipLDXY9PBZZE3WYHvMXLmkFnDXTRsWjmS/exec";
 let cache = {};                          // siste kjente felles verdier, key -> JSON-streng
 let online = true, lastSync = 0;
 async function syncAll(force){
