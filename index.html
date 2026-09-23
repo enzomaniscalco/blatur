@@ -80,19 +80,24 @@
   .who.spec button{background:transparent;border:2px solid rgba(243,233,210,.35);color:var(--paper);font-size:18px;padding:10px 4px}
   span.chk{cursor:default}
 
-  .score{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:var(--paper);color:var(--ink);border-radius:var(--radius);padding:14px 10px;margin:6px 0 14px}
-  .score .team{text-align:center}
-  .score .team .nm{font-family:var(--font-d);font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
-  .score .team .pt{font-family:var(--font-d);font-size:56px;font-weight:800;line-height:.9;margin:2px 0}
-  .score .team .mem{font-size:12.5px;color:var(--muted);line-height:1.5}
+  /* Lagfarger: HSV blå/hvit, St. Pauli brun/hvit – lys tekst på mørk flate for lesbarhet */
+  :root{ --hsv:#0b3f96; --hsv-2:#082e6e; --pauli:#5a3a1e; --pauli-2:#3f2812; }
+  .score{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;gap:8px;margin:6px 0 14px}
+  .score .team{text-align:center;border-radius:var(--radius);padding:12px 8px 10px;color:#fff;border:2px solid transparent;position:relative}
+  .score .team.a{background:linear-gradient(180deg,var(--hsv),var(--hsv-2))}
+  .score .team.b{background:linear-gradient(180deg,var(--pauli),var(--pauli-2))}
+  .score .team .nm{font-family:var(--font-d);font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#fff}
+  .score .team .pt{font-family:var(--font-d);font-size:56px;font-weight:800;line-height:.9;margin:2px 0;color:#fff}
+  .score .team .mem{font-size:12.5px;color:rgba(255,255,255,.8);line-height:1.5}
   .score .team .mem span{white-space:nowrap}
-  .score .team .mem b{color:var(--paper)}
+  .score .team .mem b{color:#fff}
   .score .team .mem .low b{color:var(--gold)}
-  .score .team .pen{font-size:12px;color:var(--red);font-weight:600;margin-top:2px}
-  .score .vs{font-family:var(--font-d);font-size:20px;font-weight:700;color:var(--red);padding:0 6px}
-  .score .team.a .pt{color:#0a3d91}
-  .score .team.b .pt{color:#5a3a1e}
+  .score .team .pen{font-size:12px;color:#ffd0d0;font-weight:600;margin-top:2px}
+  .score .vs{font-family:var(--font-d);font-size:20px;font-weight:700;color:var(--gold);padding:0 2px;align-self:center}
+  .score .team.lead{border-color:var(--gold)}
   .score .team.lead .nm::after{content:" ●";color:var(--gold)}
+  .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-weight:700;color:#fff;font-size:13px;vertical-align:1px}
+  .badge.a{background:var(--hsv)} .badge.b{background:var(--pauli)}
 
   .mine{font-size:14px;color:rgba(243,233,210,.75);margin:0 2px 10px}
   .mine b{color:var(--gold)}
@@ -188,6 +193,7 @@
   .ann .kick{font-family:var(--font-d);font-size:20px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.85}
   .ann h2{font-size:54px;margin:6px 0 4px;color:#fff}
   .ann .sc{font-family:var(--font-d);font-size:40px;font-weight:800;margin:6px 0 18px}
+  .ann .sc .badge{font-size:24px;padding:2px 12px;vertical-align:6px}
   .ann p{color:#fff;font-size:17px;margin:0 auto 12px;max-width:34ch}
   .ann p b{color:var(--gold)}
   .ann .nx{font-size:14px;opacity:.85;margin-top:6px}
@@ -233,7 +239,7 @@ const SPECTATORS = ["Vetle","Jan Christian","Johan"]; // ser alt, kan ikke røre
 const isSpec = () => SPECTATORS.includes(me);
 const QUIZ_MAKERS = ["Enzo","Andreas"]; // laget quizen – kan ikke svare
 const UNLOCK_PIN = "4262874";              // deles ut av arrangørene når destinasjonen avsløres
-const KEY_UNLOCK = "hh26:unlocked";     // personlig
+const KEY_UNLOCK = p => "hh26:unlocked:" + p.toLowerCase();   // delt: låst opp = gjelder alle enheter, nullstilles med alt annet
 const TEAMS = { A:"HSV", B:"St. Pauli" };
 
 const FIXED_DAYS = {
@@ -528,7 +534,7 @@ function maybeGate(){
     bindNotMe();
     const tryPin = async () => {
       const v = document.getElementById('pin-in').value.trim();
-      if (v === UNLOCK_PIN){ await sset(KEY_UNLOCK, true, false); gateEl.hidden = true; renderOpp(); Object.keys(dayState).forEach(renderDay); }
+      if (v === UNLOCK_PIN){ gateEl.hidden = true; cache[KEY_UNLOCK(me)] = 'true'; sset(KEY_UNLOCK(me), true, true).then(ok => { if (!ok) toast('Fikk ikke lagret opplåsingen – prøv igjen.'); }); renderOpp(); Object.keys(dayState).forEach(renderDay); }
       else document.getElementById('pin-msg').textContent = 'Feil kode.';
     };
     document.getElementById('pin-ok').addEventListener('click', tryPin);
@@ -542,7 +548,7 @@ function bindNotMe(){
 async function needsUnlock(){
   if (!me || isSpec() || QUIZ_MAKERS.includes(me)) return false;
   if (round !== 1) return false;
-  return !(await sget(KEY_UNLOCK, false));
+  return !(await sget(KEY_UNLOCK(me), true));
 }
 async function loadOpp(){
   await syncAll();
@@ -595,7 +601,7 @@ function renderOpp(){
   const spec = isSpec();
   let meLine = 'Hvem er du?';
   if (me && spec) meLine = `Du er <b>${esc(me)}</b> – tilskuer i år. Du ser alt, men kan ikke krysse av. <button class="del" id="chg-me">Bytt</button>`;
-  else if (me) meLine = `Du er <b>${esc(me)}</b>${teams && teamOf(me) ? ` – lag <b>${TEAMS[teamOf(me)]}</b>` : ''}. <button class="del" id="chg-me">Bytt</button>`;
+  else if (me) meLine = `Du er <b>${esc(me)}</b>${teams && teamOf(me) ? ` – lag <span class="badge ${teamOf(me).toLowerCase()}">${TEAMS[teamOf(me)]}</span>` : ''}. <button class="del" id="chg-me">Bytt</button>`;
   html += `<div class="mine">${meLine}</div>`;
   if (me && teams && !roundOver()) html += renderReminders();
   if (me) html += renderRound();
@@ -717,7 +723,7 @@ async function maybeAnnounce(){
   const tie = r.pa === r.pb;
   const w = r.pa > r.pb ? 'A' : 'B', l = w === 'A' ? 'B' : 'A';
   const mine = teamOfIn(r, me);
-  const head = tie ? 'Uavgjort' : `${TEAMS[w]} vant`;
+  const head = tie ? 'Uavgjort' : `<span class="badge ${w.toLowerCase()}" style="font-size:inherit;padding:2px 14px">${TEAMS[w]}</span> vant`;
   const verdict = tie ? '' : (mine === w ? 'Dere vant – drikk gratis.' : (mine === l ? 'Dere tapte – frem med lommeboka.' : ''));
   const prize = tie
     ? 'Ingen spanderer i kveld.'
@@ -726,13 +732,13 @@ async function maybeAnnounce(){
              : r.round === 2 ? 'Lørdagsrunden starter NÅ og teller til lørdag 22:00. Trekk nye lag før dere går videre i kveld.'
              : 'Det var siste oppgjør. Takk for kampen.';
   annEl.innerHTML = `<div class="kick">Resultat ${r.name}</div><h2>${head}</h2>
-    <div class="sc">${TEAMS.A} ${r.pa} – ${r.pb} ${TEAMS.B}</div>
+    <div class="sc"><span class="badge a">${TEAMS.A}</span> ${r.pa} – ${r.pb} <span class="badge b">${TEAMS.B}</span></div>
     ${verdict?`<p><b>${verdict}</b></p>`:''}<p>${prize}</p><div class="nx">${next}</div>
     <button class="btn" id="ann-ok">Skjønner</button>`;
   annEl.hidden = false;
   document.getElementById('ann-ok').addEventListener('click', async ()=>{ annEl.hidden = true; const sn = (await sget(KEY_SEEN, false)); await sset(KEY_SEEN, [...(Array.isArray(sn)?sn:[]), r.id].slice(-20), false); });
 }
-function ordText(r){ const o = r.orderer || []; return o.length === 1 ? `<b>${esc(o[0])}</b> prøver å bestille (færrest poeng) – laget betaler.` : o.length > 1 ? `${o.join(' og ')} har likt – stein, saks, papir om hvem som prøver å bestille. Laget betaler.` : ''; }
+function ordText(r){ const o = r.orderer || []; return o.length === 1 ? `<b>${esc(o[0])}</b> prøver å bestille (færrest poeng) – laget betaler.` : o.length > 1 ? `${o.slice(0,-1).join(', ')} og ${o[o.length-1]} har likt – stein, saks, papir om hvem som prøver å bestille. Laget betaler.` : ''; }
 function teamOfIn(r, p){ return r.A.includes(p) ? 'A' : (r.B.includes(p) ? 'B' : null); }
 // Påminnelser som vises i appen når en aktivitet er over (kan ikke pushe varsler – vises ved åpning/oppdatering)
 const REMINDERS = [
@@ -965,7 +971,7 @@ async function resetAll(){
   }
   await sset(KEY_RESULTS, [], true);
   await sset(KEY_ROUND, 1, true);
-  await sset(KEY_UNLOCK, false, false);
+  await Promise.all(PEOPLE.map(p => sset(KEY_UNLOCK(p), false, true)));
   await loadOpp(); maybeGate();
 }
 async function refreshScores(){
