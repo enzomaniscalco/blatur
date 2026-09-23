@@ -620,7 +620,8 @@ function renderOpp(){
   if (!teams){
     html += (!spec && isOrganizer())
       ? `<div class="empty"><strong>Lagene er ikke trukket</strong>Trekningen gjelder alle.</div>
-         <button class="btn" id="draw">Trekk lag</button>`
+         <button class="btn" id="draw">Trekk lag</button>
+         <div class="toolbar" style="margin-top:14px"><button class="btn ghost" id="reset">Nullstill alt</button></div>`
       : `<div class="empty"><strong>Lagene er ikke trukket ennå</strong>Stillingen dukker opp her når lagene er trukket.</div>`;
     html += `<div style="height:14px"></div>` + renderFF(spec);
     oppRoot.innerHTML = html; bind(); return;
@@ -964,15 +965,27 @@ async function undoDay(){
 }
 async function resetAll(){
   if(!confirm("Nullstille alt? Alle tre dager, lag, avkryssinger, resultater og Fahnenflucht slettes. Dette kan ikke angres.")) return;
-  for (const r of [1,2,3]){
-    await sset(KEY_TEAMS(r), null, true);
-    await sset(KEY_FF(r), [], true);
-    await Promise.all(PEOPLE.map(p => sset(KEY_DONE(p, r), {}, true)));
+  const btn = document.getElementById('reset'); if (btn){ btn.disabled = true; btn.textContent = 'Nullstiller …'; }
+  let ok = false;
+  try{                                                        // 1) ett kall som tømmer hele regnearket (ny Apps Script-versjon)
+    const r = await fetch(API, {method:'POST', body: JSON.stringify({action:'reset'})});
+    const j = await r.json(); ok = !!(j && j.ok && j.reset);
+  }catch(e){}
+  if (!ok){                                                   // 2) gammel Apps Script-versjon: skriv alle nøkler parallelt
+    const jobs = [];
+    for (const r of [1,2,3]){
+      jobs.push(sset(KEY_TEAMS(r), null, true), sset(KEY_FF(r), [], true));
+      PEOPLE.forEach(p => jobs.push(sset(KEY_DONE(p, r), {}, true)));
+    }
+    jobs.push(sset(KEY_RESULTS, [], true), sset(KEY_ROUND, 1, true));
+    PEOPLE.forEach(p => jobs.push(sset(KEY_UNLOCK(p), false, true)));
+    const res = await Promise.all(jobs);
+    ok = res.every(Boolean);
   }
-  await sset(KEY_RESULTS, [], true);
-  await sset(KEY_ROUND, 1, true);
-  await Promise.all(PEOPLE.map(p => sset(KEY_UNLOCK(p), false, true)));
+  cache = {}; saveSnapshot(); lastSync = 0;
+  await syncAll(true);
   await loadOpp(); maybeGate();
+  toast(ok ? 'Alt er nullstilt.' : 'Noe ble ikke nullstilt – prøv en gang til.');
 }
 async function refreshScores(){
   const st = document.getElementById('st'); if (st) st.textContent = "Henter …";
@@ -1004,7 +1017,8 @@ setInterval(async ()=>{
   me = await sget(KEY_ME, false);
   const loadAll = async (bg) => {
     await Promise.all(['tor','fre','lor','son'].map(loadDay)); await loadOpp();
-    if (!bg || gateEl.hidden) maybeGate();   // ikke tegn låseskjermen på nytt mens noen skriver i den
+    const typing = document.activeElement && document.activeElement.id === 'pin-in' && document.activeElement.value;
+    if (!bg || !typing) maybeGate();          // ikke tegn låseskjermen på nytt mens noen skriver koden
     maybeAnnounce();
   };
   if (loadSnapshot()){
