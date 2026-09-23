@@ -121,6 +121,8 @@
   details.gcol>summary::-webkit-details-marker{display:none}
   details.gcol>summary .hint{float:right;font-size:12.5px;color:var(--gold)}
   details.gcol[open]>summary .hint{opacity:.5}
+  .gate .notme{margin-top:22px;font-size:13.5px;color:rgba(243,233,210,.6)}
+  .gate .notme a{color:var(--gold);text-decoration:underline}
   .msub{font-family:var(--font-d);font-size:17px;font-weight:700;color:rgba(243,233,210,.85);margin:12px 0 2px;letter-spacing:.3px}
   .gnote{font-size:13.5px;color:rgba(243,233,210,.7);margin:-4px 0 8px}
   details.ans{margin-top:4px;font-size:13.5px}
@@ -377,7 +379,7 @@ const isOrganizer = () => QUIZ_MAKERS.includes(me);
 const activeMissions = () => MISSIONS.filter(m => !m.r || m.r === round);
 
 // Felles lagring: et Google-regneark bak et Apps Script-webapp (se oppsett). Personlig lagring: localStorage.
-const API = "https://script.google.com/macros/s/AKfycbxzL5oUHbBL2Rdai1OQNNhz1REw9TLKCCTipLDXY9PBZZE3WYHvMXLmkFnDXTRsWjmS/exec";                          // <-- lim inn Apps Script-URL-en her (slutter på /exec)
+const API = "https://script.google.com/macros/s/AKfycbxzL5oUHbBL2Rdai1OQNNhz1REw9TLKCCTipLDXY9PBZZE3WYHvMXLmkFnDXTRsWjmS/exec";
 let cache = {};                          // siste kjente felles verdier, key -> JSON-streng
 let online = true, lastSync = 0;
 async function syncAll(force){
@@ -504,8 +506,10 @@ function maybeGate(){
   if (needsGuess()){
     const m = MISSIONS.find(x => x.id === 'g00');
     gateEl.innerHTML = `<h2>Hei, ${esc(me)}.</h2><p>Før du får se programmet: <b>hvor tror du vi skal?</b> Ett forsøk. Riktig svar gir 20 poeng.</p>
-      <div class="guess">${m.o.map((t,i)=>`<button data-g="${i}">${esc(t)}</button>`).join('')}</div>`;
+      <div class="guess">${m.o.map((t,i)=>`<button data-g="${i}">${esc(t)}</button>`).join('')}</div>
+      <p class="notme">Ikke deg? <a href="#" id="notme">Bytt navn</a></p>`;
     gateEl.hidden = false;
+    bindNotMe();
     gateEl.querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', async ()=>{
       const i = +b.dataset.g;
       done[me]['g00'] = (i === m.a) ? true : {wrong:i};
@@ -518,8 +522,10 @@ function maybeGate(){
     if (!locked){ gateEl.hidden = true; return; }
     gateEl.innerHTML = `<h2>Svar registrert.</h2><p>Appen er låst til destinasjonen avsløres. Skriv inn koden du får av Enzo eller Andreas.</p>
       <div class="pin"><input type="text" inputmode="numeric" maxlength="8" placeholder="Kode" id="pin-in" autocomplete="off"><button class="btn" id="pin-ok">Lås opp</button></div>
-      <p id="pin-msg" class="pinmsg"></p>`;
+      <p id="pin-msg" class="pinmsg"></p>
+      <p class="notme">Ikke deg? <a href="#" id="notme">Bytt navn</a></p>`;
     gateEl.hidden = false;
+    bindNotMe();
     const tryPin = async () => {
       const v = document.getElementById('pin-in').value.trim();
       if (v === UNLOCK_PIN){ await sset(KEY_UNLOCK, true, false); gateEl.hidden = true; renderOpp(); Object.keys(dayState).forEach(renderDay); }
@@ -528,6 +534,10 @@ function maybeGate(){
     document.getElementById('pin-ok').addEventListener('click', tryPin);
     document.getElementById('pin-in').addEventListener('keydown', e => { if (e.key === 'Enter') tryPin(); });
   });
+}
+function bindNotMe(){
+  const a = document.getElementById('notme'); if (!a) return;
+  a.addEventListener('click', async e => { e.preventDefault(); me = null; await sset(KEY_ME, null, false); maybeGate(); });
 }
 async function needsUnlock(){
   if (!me || isSpec() || QUIZ_MAKERS.includes(me)) return false;
@@ -697,13 +707,13 @@ function footerFor(spec){
   </div>
   <p class="status" id="st">Stillingen hentes automatisk hvert 20. sekund.</p>`;
 }
-const KEY_SEEN = "hh26:seenResults";   // personlig: hvor mange resultater denne enheten har fått vist
+const KEY_SEEN = "hh26:seenResults";   // personlig: hvilke resultater (ID) denne enheten har fått vist
 const annEl = document.getElementById('ann');
 async function maybeAnnounce(){
   if (!me || !results.length) return;
-  const seen = (await sget(KEY_SEEN, false)) || 0;
-  if (results.length <= seen) return;
+  const seen = (await sget(KEY_SEEN, false)) || [];       // liste over resultat-ID-er denne enheten har vist
   const r = results[results.length - 1];
+  if (!r.id || (Array.isArray(seen) && seen.includes(r.id))) return;
   const tie = r.pa === r.pb;
   const w = r.pa > r.pb ? 'A' : 'B', l = w === 'A' ? 'B' : 'A';
   const mine = teamOfIn(r, me);
@@ -720,7 +730,7 @@ async function maybeAnnounce(){
     ${verdict?`<p><b>${verdict}</b></p>`:''}<p>${prize}</p><div class="nx">${next}</div>
     <button class="btn" id="ann-ok">Skjønner</button>`;
   annEl.hidden = false;
-  document.getElementById('ann-ok').addEventListener('click', async ()=>{ annEl.hidden = true; await sset(KEY_SEEN, results.length, false); });
+  document.getElementById('ann-ok').addEventListener('click', async ()=>{ annEl.hidden = true; const sn = (await sget(KEY_SEEN, false)); await sset(KEY_SEEN, [...(Array.isArray(sn)?sn:[]), r.id].slice(-20), false); });
 }
 function ordText(r){ const o = r.orderer || []; return o.length === 1 ? `<b>${esc(o[0])}</b> prøver å bestille (færrest poeng) – laget betaler.` : o.length > 1 ? `${o.join(' og ')} har likt – stein, saks, papir om hvem som prøver å bestille. Laget betaler.` : ''; }
 function teamOfIn(r, p){ return r.A.includes(p) ? 'A' : (r.B.includes(p) ? 'B' : null); }
@@ -765,7 +775,7 @@ async function endDay(){
   const res = (await sget(KEY_RESULTS, true)) || [];
   const loser = pa === pb ? null : (pa > pb ? 'B' : 'A');
   const orderer = loser ? lowestOf(teams[loser]) : [];
-  res.push({ round, name: ROUNDS[round], A: teams.A, B: teams.B, pa, pb, orderer });
+  res.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2,6), round, name: ROUNDS[round], A: teams.A, B: teams.B, pa, pb, orderer });
   if (!(await sset(KEY_RESULTS, res, true))){ alert("Fikk ikke lagret – prøv igjen."); return; }
   const next = round + 1;
   if (next === 2) await sset(KEY_TEAMS(2), teams, true);   // samme lag torsdag og fredag
@@ -944,7 +954,6 @@ async function undoDay(){
   const res = results.slice(0, -1);
   await sset(KEY_RESULTS, res, true);
   await sset(KEY_ROUND, last.round, true);
-  const seen = (await sget(KEY_SEEN, false)) || 0; await sset(KEY_SEEN, Math.min(seen, res.length), false);
   await loadOpp(); maybeGate();
 }
 async function resetAll(){
@@ -956,7 +965,6 @@ async function resetAll(){
   }
   await sset(KEY_RESULTS, [], true);
   await sset(KEY_ROUND, 1, true);
-  await sset(KEY_SEEN, 0, false);
   await sset(KEY_UNLOCK, false, false);
   await loadOpp(); maybeGate();
 }
@@ -970,6 +978,7 @@ async function refreshScores(){
   ff = await sget(KEY_FF(), true) || ff;
   await loadDone();
   renderOpp();
+  maybeAnnounce();                                                             // nytt resultat siden sist? vis det
   const st2 = document.getElementById('st'); if (st2) st2.textContent = online ? "Oppdatert " + new Date().toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}) : "Får ikke kontakt med lagringen – sjekk nett.";
 }
 setInterval(async ()=>{
