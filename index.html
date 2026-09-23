@@ -84,7 +84,10 @@
   .score .team{text-align:center}
   .score .team .nm{font-family:var(--font-d);font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
   .score .team .pt{font-family:var(--font-d);font-size:56px;font-weight:800;line-height:.9;margin:2px 0}
-  .score .team .mem{font-size:12.5px;color:var(--muted);line-height:1.3}
+  .score .team .mem{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .score .team .mem span{white-space:nowrap}
+  .score .team .mem b{color:var(--paper)}
+  .score .team .mem .low b{color:var(--gold)}
   .score .team .pen{font-size:12px;color:var(--red);font-weight:600;margin-top:2px}
   .score .vs{font-family:var(--font-d);font-size:20px;font-weight:700;color:var(--red);padding:0 6px}
   .score .team.a .pt{color:#0a3d91}
@@ -113,6 +116,11 @@
   .m.miss .chk{border-color:var(--red);color:var(--red)}
   .m.miss .txt{color:rgba(243,233,210,.55)}
   .gdone{font-size:13.5px;color:rgba(243,233,210,.6);margin:14px 0 0;padding:6px 0;border-top:1px solid rgba(243,233,210,.18)}
+  details.gcol{margin:14px 0 0;border-top:1px solid rgba(243,233,210,.18);padding-top:6px}
+  details.gcol>summary{cursor:pointer;list-style:none;font-size:14px;color:rgba(243,233,210,.75);padding:6px 0}
+  details.gcol>summary::-webkit-details-marker{display:none}
+  details.gcol>summary .hint{float:right;font-size:12.5px;color:var(--gold)}
+  details.gcol[open]>summary .hint{opacity:.5}
   .msub{font-family:var(--font-d);font-size:17px;font-weight:700;color:rgba(243,233,210,.85);margin:12px 0 2px;letter-spacing:.3px}
   .gnote{font-size:13.5px;color:rgba(243,233,210,.7);margin:-4px 0 8px}
   details.ans{margin-top:4px;font-size:13.5px}
@@ -369,7 +377,7 @@ const isOrganizer = () => QUIZ_MAKERS.includes(me);
 const activeMissions = () => MISSIONS.filter(m => !m.r || m.r === round);
 
 // Felles lagring: et Google-regneark bak et Apps Script-webapp (se oppsett). Personlig lagring: localStorage.
-const API = "https://script.google.com/macros/s/AKfycbxzL5oUHbBL2Rdai1OQNNhz1REw9TLKCCTipLDXY9PBZZE3WYHvMXLmkFnDXTRsWjmS/exec";                        // <-- lim inn Apps Script-URL-en her (slutter på /exec)
+const API = "https://script.google.com/macros/s/AKfycbxzL5oUHbBL2Rdai1OQNNhz1REw9TLKCCTipLDXY9PBZZE3WYHvMXLmkFnDXTRsWjmS/exec";                          // <-- lim inn Apps Script-URL-en her (slutter på /exec)
 let cache = {};                          // siste kjente felles verdier, key -> JSON-streng
 let online = true, lastSync = 0;
 async function syncAll(force){
@@ -378,10 +386,14 @@ async function syncAll(force){
   try{
     const r = await fetch(API + '?t=' + Date.now(), {cache:'no-store'});
     const j = await r.json();
-    if (j && j.items){ cache = j.items; online = true; lastSync = Date.now(); return true; }
+    if (j && j.items){ cache = j.items; online = true; lastSync = Date.now(); saveSnapshot(); return true; }
   }catch(e){ console.error("sync", e); }
   online = false; return false;
 }
+// Siste kjente felles data lagres lokalt, så appen kan vises med en gang neste gang (og oppdateres i bakgrunnen).
+const KEY_SNAP = 'hh26:snapshot';
+function saveSnapshot(){ try{ localStorage.setItem(KEY_SNAP, JSON.stringify(cache)); }catch(e){} }
+function loadSnapshot(){ try{ const v = localStorage.getItem(KEY_SNAP); if (v){ cache = JSON.parse(v) || {}; return Object.keys(cache).length > 0; } }catch(e){} return false; }
 async function sget(key, shared){
   if (!shared){ try{ const v = localStorage.getItem(key); return v === null ? null : JSON.parse(v); }catch(e){ return null; } }
   if (!(key in cache)) return null;
@@ -395,7 +407,7 @@ async function sset(key, val, shared){
     const r = await fetch(API, {method:'POST', body: JSON.stringify({key, value: val})}); // text/plain → ingen preflight
     const j = await r.json();
     if (!j || !j.ok) return false;
-    cache[key] = JSON.stringify(val); online = true; return true;
+    cache[key] = JSON.stringify(val); online = true; saveSnapshot(); return true;
   }catch(e){ console.error("save", e); online = false; return false; }
 }
 
@@ -563,6 +575,7 @@ function personPts(p){
   for (const m of activeMissions()) if (done[p] && done[p][m.id] === true) s += m.p;
   return s - ffCount(p)*FF_PENALTY;
 }
+function memLine(names){ const low = lowestOf(names); return names.map(p => `<span class="${low.includes(p)?'low':''}">${esc(p)} <b>${personPts(p)}</b></span>`).join(' · '); }
 function lowestOf(names){ const pts = names.map(p => [p, personPts(p)]); const min = Math.min(...pts.map(x=>x[1])); return pts.filter(x=>x[1]===min).map(x=>x[0]); }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
@@ -599,25 +612,40 @@ function renderOpp(){
   const pa = points('A'), pb = points('B');
   html += `
     <div class="score">
-      <div class="team a ${pa>pb?'lead':''}"><div class="nm">${TEAMS.A}</div><div class="pt">${pa}</div><div class="mem">${teams.A.join(', ')}</div>${ffPenalty('A')?`<div class="pen">−${ffPenalty('A')} Fahnenflucht</div>`:''}</div>
+      <div class="team a ${pa>pb?'lead':''}"><div class="nm">${TEAMS.A}</div><div class="pt">${pa}</div><div class="mem">${memLine(teams.A)}</div>${ffPenalty('A')?`<div class="pen">−${ffPenalty('A')} Fahnenflucht</div>`:''}</div>
       <div class="vs">mot</div>
-      <div class="team b ${pb>pa?'lead':''}"><div class="nm">${TEAMS.B}</div><div class="pt">${pb}</div><div class="mem">${teams.B.join(', ')}</div>${ffPenalty('B')?`<div class="pen">−${ffPenalty('B')} Fahnenflucht</div>`:''}</div>
+      <div class="team b ${pb>pa?'lead':''}"><div class="nm">${TEAMS.B}</div><div class="pt">${pb}</div><div class="mem">${memLine(teams.B)}</div>${ffPenalty('B')?`<div class="pen">−${ffPenalty('B')} Fahnenflucht</div>`:''}</div>
     </div>
     ${renderFF(spec)}
-    <div class="note"><b>Regler:</b> hvert oppdrag kan krysses av <b>én gang per person</b>. <b>Motstanderlaget må ha sett det.</b> Oppgjør <b>kl. 22:00</b> hver dag, og neste runde starter umiddelbart – kvelden etter kl. 22 teller for neste dag.<br><b>Premie:</b> en flaske <b>champagne</b>. <b>Den på taperlaget med færrest poeng</b> prøver å bestille den – uansett hvor vi er. Selger de ikke champagne, blir det en <b>vanlig runde</b>. <b>Taperlaget betaler samlet.</b> Hver <b>Fahnenflucht</b> koster laget <b>${FF_PENALTY} poeng</b>.</div>`;
+    <div class="note"><b>Regler:</b> hvert oppdrag kan krysses av <b>én gang per person</b>. <b>Motstanderlaget må ha sett det.</b> Oppgjør <b>kl. 22:00</b> hver dag, og neste runde starter umiddelbart – kvelden etter kl. 22 teller for neste dag.<br><b>Premie:</b> en flaske <b>champagne</b>. <b>Den på taperlaget med færrest poeng</b> (gult tall over) prøver å bestille den – uansett hvor vi er. Selger de ikke champagne, blir det en <b>vanlig runde</b>. <b>Taperlaget betaler samlet.</b> Hver <b>Fahnenflucht</b> koster laget <b>${FF_PENALTY} poeng</b>.</div>`;
   let g = '', sg = '';
   const answerers = PEOPLE.filter(p => !QUIZ_MAKERS.includes(p));
   const groupDone = grp => activeMissions().filter(m => m.g === grp && m.o).every(m => answerers.every(p => done[p] && done[p][m.id] !== undefined));
+  // Quiz/gjetting jeg selv er ferdig med kollapses til én linje (kan åpnes for å se fasit)
+  const myDone = grp => !spec && answerers.includes(me) && activeMissions().filter(m => m.g === grp && m.o).every(m => done[me] && done[me][m.id] !== undefined);
+  const myPts = grp => activeMissions().filter(m => m.g === grp && m.o && done[me] && done[me][m.id] === true).reduce((s,m)=>s+m.p,0);
+  let openDetails = false;
   for (const m of activeMissions()){
     if (m.o && groupDone(m.g)){                       // quiz/gjetting ferdig for alle – skjul spørsmålene
+      if (openDetails){ html += `</details>`; openDetails = false; }
       if (m.g !== g){ g = m.g; html += `<div class="gdone">${esc(m.g)} – gjennomført, poengene er lagt til.</div>`; }
       continue;
     }
+    if (m.o && myDone(m.g)){                          // jeg er ferdig – kollaps gruppen
+      if (m.g !== g){
+        if (openDetails){ html += `</details>`; }
+        g = m.g; sg = ''; openDetails = true;
+        html += `<details class="gcol"><summary>${esc(g)} – du er ferdig · <b>${myPts(g)} p</b> <span class="hint">vis fasit</span></summary>`;
+      }
+      html += renderQuiz(m, spec); continue;
+    }
+    if (openDetails){ html += `</details>`; openDetails = false; }
     if (m.g !== g){ g = m.g; sg = ''; html += `<div class="mgroup">${esc(g)}</div>${GROUP_NOTES[g]?`<div class="gnote">${esc(GROUP_NOTES[g])}</div>`:""}`; }
     if (m.sg && m.sg !== sg){ sg = m.sg; html += `<div class="msub">${esc(sg)}</div>`; }
     if (m.o){ html += renderQuiz(m, spec); continue; }
     html += rowFor(m, spec);
   }
+  if (openDetails) html += `</details>`;
   html += footerFor(spec);
   oppRoot.innerHTML = html;
   bind();
@@ -959,10 +987,19 @@ setInterval(async ()=>{
     return;
   }
   me = await sget(KEY_ME, false);
-  await Promise.all(['tor','fre','lor','son'].map(loadDay));
-  await loadOpp();
-  maybeGate();
-  maybeAnnounce();
+  const loadAll = async (bg) => {
+    await Promise.all(['tor','fre','lor','son'].map(loadDay)); await loadOpp();
+    if (!bg || gateEl.hidden) maybeGate();   // ikke tegn låseskjermen på nytt mens noen skriver i den
+    maybeAnnounce();
+  };
+  if (loadSnapshot()){
+    lastSync = Date.now();          // vis siste kjente data med en gang (ingen venting på Google) …
+    await loadAll();
+    lastSync = 0;
+    syncAll(true).then(ok => { if (ok) loadAll(true); });   // … og hent fersk versjon i bakgrunnen
+  } else {
+    await loadAll();                // første gang: må hente fra Google
+  }
 })();
 </script>
 </body>
